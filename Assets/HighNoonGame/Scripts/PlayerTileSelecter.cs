@@ -293,7 +293,7 @@ public class PlayerTileSelecter : MonoBehaviour
                 Debug.LogError($"PlayerTileSelecter: tile {i} is null.");
                 return false;
             }
-            map[i].position = Tiles[i].transform.position;
+            map[i].position = Tiles[i].PreviewWorldPosition;
         }
 
         return true;

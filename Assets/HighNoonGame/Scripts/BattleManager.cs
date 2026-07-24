@@ -78,13 +78,25 @@ public class BattleManager : Singleton<BattleManager>
     [Tooltip("Пауза между шагами High Noon")]
     public float highNoonStepDelay = 0.45f;
 
-    [Header("Выстрел (LineRenderer)")]
+    [Header("Выстрел (Bullet Trace)")]
+    [SerializeField] Tracer bulletTracePrefab;
     [SerializeField] float shotLineHeight = 1.2f;
-    [SerializeField] float shotLineWidth = 0.06f;
-    [SerializeField] float shotLineLifetime = 0.35f;
-    [SerializeField] Color playerShotColor = new Color(1f, 0.85f, 0.2f, 1f);
-    [SerializeField] Color enemyShotColor = new Color(1f, 0.25f, 0.15f, 1f);
-    [SerializeField] Material shotLineMaterial;
+
+    [Header("Выстрел VFX")]
+    [Tooltip("Вспышка в точке выстрела")]
+    [SerializeField] ParticleSystem muzzleFlashPrefab;
+    [Tooltip("Попадание в клетку / промах")]
+    [SerializeField] ParticleSystem tileImpactPrefab;
+    [Tooltip("Попадание во врага")]
+    [SerializeField] ParticleSystem enemyHitPrefab;
+    [Tooltip("Попадание в игрока (если пусто — используется enemyHit)")]
+    [SerializeField] ParticleSystem playerHitPrefab;
+    [Tooltip("Пятно / след на земле в точке попадания")]
+    [SerializeField] ParticleSystem groundStainPrefab;
+    [SerializeField] float shotVfxDestroyDelay = 2f;
+    [Tooltip("Как долго живёт пятно на земле (дольше вспышек)")]
+    [SerializeField] float groundStainLifetime = 20f;
+    [SerializeField] float groundStainHeight = 0.02f;
 
     private PlanningAction[] playerPlanningList;
     private PlanningAction[] enemyPlanningList;
@@ -306,49 +318,55 @@ public class BattleManager : Singleton<BattleManager>
             return false;
 
         int fromTile = isPlayer ? playerPos : enemyPos;
-        SpawnShotLine(fromTile, target, isPlayer);
+        Vector3 muzzlePos = battleMap[fromTile].position + Vector3.up * shotLineHeight;
+        Vector3 impactPos = battleMap[target].position + Vector3.up * shotLineHeight;
+        Vector3 groundPos = battleMap[target].position + Vector3.up * groundStainHeight;
 
-        if (isPlayer)
-            return _enemyAlive && target == enemyPos;
+        SpawnShotVfx(muzzleFlashPrefab, muzzlePos, shotVfxDestroyDelay);
+        SpawnShotLine(muzzlePos, impactPos);
+        SpawnShotVfx(groundStainPrefab, groundPos, groundStainLifetime);
 
-        return _playerAlive && target == playerPos;
-    }
+        bool hitCharacter = isPlayer
+            ? (_enemyAlive && target == enemyPos)
+            : (_playerAlive && target == playerPos);
 
-    void SpawnShotLine(int fromTile, int toTile, bool isPlayer)
-    {
-        Vector3 start = battleMap[fromTile].position + Vector3.up * shotLineHeight;
-        Vector3 end = battleMap[toTile].position + Vector3.up * shotLineHeight;
-
-        var go = new GameObject(isPlayer ? "PlayerShotLine" : "EnemyShotLine");
-        var lr = go.AddComponent<LineRenderer>();
-        lr.positionCount = 2;
-        lr.SetPosition(0, start);
-        lr.SetPosition(1, end);
-        lr.startWidth = shotLineWidth;
-        lr.endWidth = shotLineWidth * 0.5f;
-        lr.useWorldSpace = true;
-        lr.numCapVertices = 4;
-        lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        lr.receiveShadows = false;
-
-        if (shotLineMaterial != null)
-            lr.material = shotLineMaterial;
+        if (hitCharacter)
+        {
+            ParticleSystem hitFx = isPlayer
+                ? enemyHitPrefab
+                : (playerHitPrefab != null ? playerHitPrefab : enemyHitPrefab);
+            SpawnShotVfx(hitFx, impactPos, shotVfxDestroyDelay);
+        }
         else
-            lr.material = new Material(Shader.Find("Sprites/Default"));
+        {
+            SpawnShotVfx(tileImpactPrefab, impactPos, shotVfxDestroyDelay);
+        }
 
-        Color c = isPlayer ? playerShotColor : enemyShotColor;
-        lr.startColor = c;
-        lr.endColor = new Color(c.r, c.g, c.b, 0.15f);
-
-        StartCoroutine(DespawnShotLine(go, shotLineLifetime));
+        return hitCharacter;
     }
 
-    IEnumerator DespawnShotLine(GameObject lineGo, float lifetime)
+    void SpawnShotLine(Vector3 start, Vector3 end)
     {
-        if (lifetime > 0f)
-            yield return new WaitForSeconds(lifetime);
-        if (lineGo != null)
-            Destroy(lineGo);
+        if (bulletTracePrefab == null)
+        {
+            Debug.LogWarning("BattleManager: bulletTracePrefab is not assigned.");
+            return;
+        }
+
+        var tracer = Instantiate(bulletTracePrefab);
+        tracer.gameObject.SetActive(false);
+        tracer.Play(start, end, destroyWhenDone: true);
+    }
+
+    void SpawnShotVfx(ParticleSystem prefab, Vector3 worldPos, float destroyDelay)
+    {
+        if (prefab == null)
+            return;
+
+        var fx = Instantiate(prefab, worldPos, Quaternion.identity);
+        fx.Play(true);
+        if (destroyDelay > 0f)
+            Destroy(fx.gameObject, destroyDelay);
     }
 
     void ClearOwnerAt(int tileIndex)

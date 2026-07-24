@@ -11,10 +11,14 @@ public class SelactableTile : MonoBehaviour
     public Material baseMaterial;
     public Material selectedMaterial;
 
+    public Transform previewTransform;
+
     public UnityEvent<int> OnTilePressed = new UnityEvent<int>();
     public UnityEvent<int> OnTileHovered = new UnityEvent<int>();
     public UnityEvent<int> OnTileUnhovered = new UnityEvent<int>();
     public UnityEvent<int> OnTileUnpressed = new UnityEvent<int>();
+
+    public Vector3 PreviewWorldPosition => previewTransform.position;
 
     void Awake()
     {
@@ -23,6 +27,9 @@ public class SelactableTile : MonoBehaviour
 
         if (mr != null && baseMaterial == null)
             baseMaterial = mr.sharedMaterial;
+
+        if (previewTransform == null)
+            previewTransform = transform;
     }
 
     void OnEnable()
@@ -49,5 +56,4 @@ public class SelactableTile : MonoBehaviour
             mr.material = baseMaterial;
     }
 
-    public Vector3 PreviewWorldPosition => transform.position + Vector3.up * 0.05f;
 }
