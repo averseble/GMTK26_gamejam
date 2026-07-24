@@ -1,37 +1,48 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
-struct RunState
+public struct RunState
 {
-    
 }
 
-public class RunManager : Singleton<RunManager>
+public class RunManager : MonoBehaviour
 {
-    RunState runState;
+    public RunState Current { get; private set; }
 
-    void Start()
+    [SerializeField] PlayerConfig playerConfig;
+    [SerializeField] EnemyConfig enemyConfig;
+
+    public void StartNewGame()
     {
-        
+        GameRoot.Instance.LoadBattle();
     }
 
-    void Update()
+    public void ContinueGame()
     {
-        
+        GameRoot.Instance.LoadBattle();
     }
 
-    public void NewGameBtn_click()
+    public void OnBattleFinished(bool won)
     {
-        SceneManager.LoadScene("BattleScene", LoadSceneMode.Single);        
+        // позже: прогресс забега / следующий враг
     }
 
-    public void SettingsBtn_click()
+    public void GoToMenu()
     {
-        
+        GameRoot.Instance.LoadMenu();
     }
 
-    public void ExitBtn_click()
+    public void RestartBattle()
     {
-        
+        GameRoot.Instance.RestartBattle();
+    }
+
+    public PlayerConfig GetPlayerSO()
+    {
+        return playerConfig;
+    }
+
+    public EnemyConfig GetEnemySO()
+    {
+        return enemyConfig;
     }
 }
