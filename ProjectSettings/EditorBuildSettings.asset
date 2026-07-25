@@ -12,6 +12,9 @@ EditorBuildSettings:
     path: Assets/HighNoonGame/Scenes/MenuScene.unity
     guid: 6d81a299c33b99948a804f80a833a7a6
   - enabled: 1
+    path: Assets/HighNoonGame/Scenes/EnemySelectScene.unity
+    guid: 837df65e1419d3d4c9cb38076a3ab618
+  - enabled: 1
     path: Assets/HighNoonGame/Scenes/BattleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
   m_configObjects:
