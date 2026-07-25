@@ -6,12 +6,15 @@ using UnityEngine.SceneManagement;
 public class GameRoot : PersistentSingleton<GameRoot>
 {
     public const string MenuSceneName = "MenuScene";
+    public const string EnemySelectSceneName = "EnemySelectScene";
     public const string BattleSceneName = "BattleScene";
 
     public RunManager Run { get; private set; }
     public AudioManager Audio { get; private set; }
+    public ScreenFader Fader { get; private set; }
 
     EventSystem _ownedEventSystem;
+    bool _isTransitioning;
 
     protected override void Awake()
     {
@@ -25,6 +28,10 @@ public class GameRoot : PersistentSingleton<GameRoot>
         if (Audio == null)
             Audio = gameObject.AddComponent<AudioManager>();
 
+        Fader = GetComponent<ScreenFader>();
+        if (Fader == null)
+            Fader = gameObject.AddComponent<ScreenFader>();
+
         EnsureEventSystem();
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
@@ -36,28 +43,66 @@ public class GameRoot : PersistentSingleton<GameRoot>
 
     void Start()
     {
-        LoadMenu();
+        if (Fader != null)
+            Fader.SetAlpha(1f);
+
+        LoadSceneImmediate(MenuSceneName);
     }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         EnsureEventSystem();
         CleanupDuplicateEventSystems();
+        _isTransitioning = false;
+
+        if (Fader != null)
+            Fader.FadeIn();
     }
 
     public void LoadMenu()
     {
-        SceneManager.LoadScene(MenuSceneName, LoadSceneMode.Single);
+        TransitionTo(MenuSceneName);
+    }
+
+    public void LoadEnemySelect()
+    {
+        TransitionTo(EnemySelectSceneName);
     }
 
     public void LoadBattle()
     {
-        SceneManager.LoadScene(BattleSceneName, LoadSceneMode.Single);
+        TransitionTo(BattleSceneName);
     }
 
     public void RestartBattle()
     {
-        LoadBattle();
+        TransitionTo(BattleSceneName);
+    }
+
+    void TransitionTo(string sceneName)
+    {
+        if (_isTransitioning)
+            return;
+
+        if (Fader == null)
+        {
+            LoadSceneImmediate(sceneName);
+            return;
+        }
+
+        if (Fader.IsFullyOpaque)
+        {
+            LoadSceneImmediate(sceneName);
+            return;
+        }
+
+        _isTransitioning = true;
+        Fader.FadeOut(-1f, () => LoadSceneImmediate(sceneName));
+    }
+
+    void LoadSceneImmediate(string sceneName)
+    {
+        SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
     }
 
     void EnsureEventSystem()

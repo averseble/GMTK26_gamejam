@@ -255,8 +255,8 @@ MonoBehaviour:
   bulletSmokeDuration: 3
   muzzleFlashPrefab: {fileID: 1173035712439393837, guid: 44eb4971f9dd568448d97842b4ddcaaa, type: 3}
   tileImpactPrefab: {fileID: 2274715134737780551, guid: 4b4b78d93cda614488a7b3f29d2c4742, type: 3}
-  enemyHitPrefab: {fileID: 0}
-  playerHitPrefab: {fileID: 0}
+  enemyHitPrefab: {fileID: 3005995486171017295, guid: b1571af5570c79347bd6f64813322d68, type: 3}
+  playerHitPrefab: {fileID: 3005995486171017295, guid: b1571af5570c79347bd6f64813322d68, type: 3}
   characterHitExtraPrefab: {fileID: 1173035712439393837, guid: e1eb07e24aa0be94880dadfe25810c2a, type: 3}
   groundStainPrefab: {fileID: 6879340143353281494, guid: 80a4ff4a2a3da684d87c9b9a79e3237d, type: 3}
   shotVfxDestroyDelay: 2

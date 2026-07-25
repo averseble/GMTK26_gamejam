@@ -125,8 +125,7 @@ public class BattleMenuUI : MonoBehaviour
 
     public void OnNextEnemyClicked()
     {
-        GameRoot.Instance.Run.OnBattleFinished(true);
-        GameRoot.Instance.Run.RestartBattle();
+        GameRoot.Instance.Run.GoToEnemySelect();
     }
 
     public void OnMenuClicked()
