@@ -53,6 +53,10 @@ public class BattleManager : Singleton<BattleManager>
 
     public bool WaitingForActionSelection { get; private set; }
 
+    public event Action ShotFired;
+    public event Action<int> TileShot;
+    public event Action<bool> CharacterHit;
+
     public PlayerTileSelecter playerTileSelecter;
     public BattleMenuUI battleMenuUI;
 
@@ -60,6 +64,10 @@ public class BattleManager : Singleton<BattleManager>
 
     GameObject playerCharacter;
     GameObject enemyCharacter;
+    Transform playerMuzzleTarget;
+    Transform playerHeadTarget;
+    Transform enemyMuzzleTarget;
+    Transform enemyHeadTarget;
 
     int playerPos = 5;
     int enemyPos = 2;
@@ -90,6 +98,7 @@ public class BattleManager : Singleton<BattleManager>
     [SerializeField] ParticleSystem tileImpactPrefab;
     [SerializeField] ParticleSystem enemyHitPrefab;
     [SerializeField] ParticleSystem playerHitPrefab;
+    [SerializeField] ParticleSystem characterHitExtraPrefab;
     [SerializeField] ParticleSystem groundStainPrefab;
     [SerializeField] float shotVfxDestroyDelay = 2f;
     [SerializeField] float groundStainLifetime = 20f;
@@ -159,6 +168,7 @@ public class BattleManager : Singleton<BattleManager>
 
         playerCharacter = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
         enemyCharacter = Instantiate(enemyPrefab, Vector3.zero, Quaternion.identity);
+        CacheCharacterAimTargets();
 
         int mapSize = columnsInMap * rowsInMap;
         battleMap = new gameField[mapSize];
@@ -305,6 +315,81 @@ public class BattleManager : Singleton<BattleManager>
         }
     }
 
+    void CacheCharacterAimTargets()
+    {
+        playerMuzzleTarget = FindNamedChild(playerCharacter, "MuzzleTarget");
+        playerHeadTarget = FindNamedChild(playerCharacter, "HeadTarget");
+        enemyMuzzleTarget = FindNamedChild(enemyCharacter, "MuzzleTarget");
+        enemyHeadTarget = FindNamedChild(enemyCharacter, "HeadTarget");
+    }
+
+    static Transform FindNamedChild(GameObject root, string name)
+    {
+        if (root == null)
+            return null;
+
+        Transform direct = root.transform.Find(name);
+        if (direct != null)
+            return direct;
+
+        var all = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] != null && all[i].name == name)
+                return all[i];
+        }
+
+        return null;
+    }
+
+    Vector3 GetMuzzleWorldPos(bool isPlayerShooter)
+    {
+        Transform muzzle;
+        if (isPlayerShooter)
+            muzzle = playerMuzzleTarget;
+        else
+            muzzle = enemyMuzzleTarget;
+
+        if (muzzle != null)
+            return muzzle.position;
+
+        int fromTile;
+        if (isPlayerShooter)
+            fromTile = playerPos;
+        else
+            fromTile = enemyPos;
+
+        return battleMap[fromTile].position + Vector3.up * shotLineHeight;
+    }
+
+    Vector3 GetImpactWorldPos(bool hitCharacter, bool isPlayerShooter, int targetTile)
+    {
+        if (hitCharacter)
+        {
+            Transform head;
+            if (isPlayerShooter)
+                head = enemyHeadTarget;
+            else
+                head = playerHeadTarget;
+
+            if (head != null)
+                return head.position;
+        }
+
+        return battleMap[targetTile].position + Vector3.up * shotLineHeight;
+    }
+
+    ParticleSystem GetCharacterHitPrefab(bool isPlayerShooter)
+    {
+        if (isPlayerShooter)
+            return enemyHitPrefab;
+
+        if (playerHitPrefab != null)
+            return playerHitPrefab;
+
+        return enemyHitPrefab;
+    }
+
     bool TryExecuteShoot(bool isPlayer, PlanningAction action)
     {
         if (action.type != PlanningActionType.Shoot)
@@ -314,30 +399,35 @@ public class BattleManager : Singleton<BattleManager>
         if (target < 0 || battleMap == null || target >= battleMap.Length)
             return false;
 
-        int fromTile = isPlayer ? playerPos : enemyPos;
-        Vector3 muzzlePos = battleMap[fromTile].position + Vector3.up * shotLineHeight;
-        Vector3 impactPos = battleMap[target].position + Vector3.up * shotLineHeight;
+        bool hitCharacter;
+        if (isPlayer)
+            hitCharacter = _enemyAlive && target == enemyPos;
+        else
+            hitCharacter = _playerAlive && target == playerPos;
+
+        Vector3 muzzlePos = GetMuzzleWorldPos(isPlayer);
+        Vector3 impactPos = GetImpactWorldPos(hitCharacter, isPlayer, target);
         Vector3 groundPos = battleMap[target].position + Vector3.up * groundStainHeight;
 
         SpawnShotVfx(muzzleFlashPrefab, muzzlePos, shotVfxDestroyDelay);
         SpawnShotLine(muzzlePos, impactPos);
-        SpawnShotVfx(groundStainPrefab, groundPos, groundStainLifetime);
         PlayShotAudio();
-
-        bool hitCharacter = isPlayer
-            ? (_enemyAlive && target == enemyPos)
-            : (_playerAlive && target == playerPos);
+        ShotFired?.Invoke();
+        TileShot?.Invoke(target);
 
         if (hitCharacter)
         {
-            ParticleSystem hitFx = isPlayer
-                ? enemyHitPrefab
-                : (playerHitPrefab != null ? playerHitPrefab : enemyHitPrefab);
-            SpawnShotVfx(hitFx, impactPos, shotVfxDestroyDelay);
+            Quaternion shotRotation = GetShotRotation(muzzlePos, impactPos);
+            SpawnShotVfx(GetCharacterHitPrefab(isPlayer), impactPos, shotRotation, shotVfxDestroyDelay);
+            SpawnShotVfx(characterHitExtraPrefab, impactPos, shotVfxDestroyDelay);
             PlayCharacterHitAudio();
+
+            bool hitPlayerSide = !isPlayer;
+            CharacterHit?.Invoke(hitPlayerSide);
         }
         else
         {
+            SpawnShotVfx(groundStainPrefab, groundPos, groundStainLifetime);
             SpawnShotVfx(tileImpactPrefab, impactPos, shotVfxDestroyDelay);
             PlayTileImpactAudio();
         }
@@ -379,12 +469,26 @@ public class BattleManager : Singleton<BattleManager>
         tracer.Play(start, end, true);
     }
 
+    static Quaternion GetShotRotation(Vector3 from, Vector3 to)
+    {
+        Vector3 direction = to - from;
+        if (direction.sqrMagnitude < 0.0001f)
+            return Quaternion.identity;
+
+        return Quaternion.LookRotation(direction.normalized);
+    }
+
     void SpawnShotVfx(ParticleSystem prefab, Vector3 worldPos, float destroyDelay)
+    {
+        SpawnShotVfx(prefab, worldPos, Quaternion.identity, destroyDelay);
+    }
+
+    void SpawnShotVfx(ParticleSystem prefab, Vector3 worldPos, Quaternion worldRotation, float destroyDelay)
     {
         if (prefab == null)
             return;
 
-        var fx = Instantiate(prefab, worldPos, Quaternion.identity);
+        var fx = Instantiate(prefab, worldPos, worldRotation);
         fx.Play(true);
         if (destroyDelay > 0f)
             Destroy(fx.gameObject, destroyDelay);
@@ -426,7 +530,7 @@ public class BattleManager : Singleton<BattleManager>
 
         BattleOutcome outcome;
         if (!_playerAlive && !_enemyAlive)
-            outcome = BattleOutcome.Draw; // показываем как lose
+            outcome = BattleOutcome.Draw; 
         else if (_playerAlive && !_enemyAlive)
             outcome = BattleOutcome.PlayerWin;
         else if (!_playerAlive && _enemyAlive)
@@ -436,7 +540,6 @@ public class BattleManager : Singleton<BattleManager>
 
         Debug.Log($"High Noon ended: {outcome}");
 
-        // Никто не попал — сразу реванш, без меню
         if (outcome == BattleOutcome.NoHits)
         {
             GameRoot.Instance.RestartBattle();

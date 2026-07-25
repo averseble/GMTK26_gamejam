@@ -127,14 +127,14 @@ public class PlayerTileSelecter : MonoBehaviour
 
     bool IsInputAllowed()
     {
-        return BattleManager.Instance != null && BattleManager.Instance.WaitingForActionSelection;
+        return BattleManager.TryGetInstance(out var battle) && battle.WaitingForActionSelection;
     }
 
     bool IsValidTileAction(SelactableTile tile)
     {
-        if (tile == null || BattleManager.Instance == null)
+        if (tile == null || !BattleManager.TryGetInstance(out var battle))
             return false;
-        return BattleManager.Instance.IsPlayerActionValid(tile.tileIndex, tile.actionKind);
+        return battle.IsPlayerActionValid(tile.tileIndex, tile.actionKind);
     }
 
     void Update()

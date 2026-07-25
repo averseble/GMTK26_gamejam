@@ -4,20 +4,28 @@ public abstract class Singleton<T> : MonoBehaviour where T : MonoBehaviour
 {
     private static T _instance;
 
+    public static bool HasInstance => _instance != null;
+
+    public static bool TryGetInstance(out T instance)
+    {
+        instance = _instance;
+        return instance != null;
+    }
+
     public static T Instance
     {
         get
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<T>();
-                
+                _instance = FindFirstObjectByType<T>();
+
                 if (_instance == null)
                 {
                     Debug.LogError($"No instance of {typeof(T)} found in the scene!");
                 }
             }
-            
+
             return _instance;
         }
     }
@@ -33,6 +41,12 @@ public abstract class Singleton<T> : MonoBehaviour where T : MonoBehaviour
             Destroy(gameObject);
         }
     }
+
+    protected virtual void OnDestroy()
+    {
+        if (_instance == this)
+            _instance = null;
+    }
 }
 
 
@@ -40,30 +54,31 @@ public abstract class PersistentSingleton<T> : MonoBehaviour where T : MonoBehav
 {
     private static T _instance;
 
+    public static bool HasInstance => _instance != null;
+
+    public static bool TryGetInstance(out T instance)
+    {
+        instance = _instance;
+        return instance != null;
+    }
+
     public static T Instance
     {
         get
         {
             if (_instance == null)
             {
-                _instance = (T)FindObjectOfType(typeof(T));
-
-                if (FindObjectsOfType(typeof(T)).Length > 1)
-                {
-                    return _instance;
-                }
+                _instance = FindFirstObjectByType<T>();
 
                 if (_instance == null)
                 {
                     GameObject singleton = new GameObject();
                     _instance = singleton.AddComponent<T>();
-                    singleton.name = $"(singleton) {typeof(T).ToString()}";
-
+                    singleton.name = $"(singleton) {typeof(T)}";
                 }
             }
 
             return _instance;
-            
         }
     }
 
@@ -80,7 +95,14 @@ public abstract class PersistentSingleton<T> : MonoBehaviour where T : MonoBehav
         }
     }
 
-    protected virtual void OnApplicationQuit() {
+    protected virtual void OnDestroy()
+    {
+        if (_instance == this)
+            _instance = null;
+    }
+
+    protected virtual void OnApplicationQuit()
+    {
         _instance = null;
         Destroy(gameObject);
     }
