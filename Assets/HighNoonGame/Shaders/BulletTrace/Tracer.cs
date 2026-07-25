@@ -61,7 +61,6 @@ public class Tracer : MonoBehaviour
 
     void Start()
     {
-        // На случай, если объект уже был enabled до подписки / первый кадр
         if (!_hasLine)
             BuildAndPlay();
     }
@@ -78,7 +77,6 @@ public class Tracer : MonoBehaviour
             Destroy(_matInstance);
     }
 
-    /// <summary>Спавн выстрела между двумя точками (без raycast). По умолчанию уничтожает объект в конце.</summary>
     public void Play(Vector3 worldStart, Vector3 worldEnd, bool destroyWhenDone = true)
     {
         _destroyWhenDone = destroyWhenDone;

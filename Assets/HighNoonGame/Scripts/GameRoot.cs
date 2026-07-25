@@ -9,15 +9,21 @@ public class GameRoot : PersistentSingleton<GameRoot>
     public const string BattleSceneName = "BattleScene";
 
     public RunManager Run { get; private set; }
+    public AudioManager Audio { get; private set; }
 
     EventSystem _ownedEventSystem;
 
     protected override void Awake()
     {
         base.Awake();
+
         Run = GetComponent<RunManager>();
         if (Run == null)
             Run = gameObject.AddComponent<RunManager>();
+
+        Audio = GetComponent<AudioManager>();
+        if (Audio == null)
+            Audio = gameObject.AddComponent<AudioManager>();
 
         EnsureEventSystem();
         SceneManager.sceneLoaded += OnSceneLoaded;

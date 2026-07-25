@@ -9,10 +9,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4472080047834122629}
-  - component: {fileID: 6721465944244199628}
+  - component: {fileID: -7529732349220818513}
   - component: {fileID: 2740860544437879937}
   m_Layer: 0
-  m_Name: BulletTrace
+  m_Name: BulletStraightTrace
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -33,7 +33,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6721465944244199628
+--- !u!114 &-7529732349220818513
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -45,21 +45,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 559023141bbc23645a5ef9af6ab7655e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tracer
-  maxDistance: 100
+  maxDistance: 500
   hitMask:
     serializedVersion: 2
     m_Bits: 4294967295
   triggerInteraction: 1
   tracer: {fileID: 2740860544437879937}
-  tracerMaterial: {fileID: 2100000, guid: 859025ea0a51eb24b913a3a19a255e49, type: 2}
-  pointsPerUnit: 16
-  minPoints: 8
-  maxPoints: 128
-  noiseScale: 10
-  noisePower: 30
-  distortionFadeIn: 2
+  tracerMaterial: {fileID: 2100000, guid: a05e170759867b049b10f8572bd4611e, type: 2}
+  pointsPerUnit: 8
+  minPoints: 1
+  maxPoints: 16
+  noiseScale: 1
+  noisePower: 0
+  distortionFadeIn: 1
   noiseScrollSpeed: 2.5
-  dissolveDuration: 5
+  dissolveDuration: 0.3
 --- !u!120 &2740860544437879937
 LineRenderer:
   serializedVersion: 3
@@ -86,7 +86,7 @@ LineRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 859025ea0a51eb24b913a3a19a255e49, type: 2}
+  - {fileID: 2100000, guid: a05e170759867b049b10f8572bd4611e, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -119,8 +119,8 @@ LineRenderer:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0
-        value: 1
+        time: 0.008140564
+        value: 0.72283554
         inSlope: 0
         outSlope: 0
         tangentMode: 0
@@ -132,8 +132,8 @@ LineRenderer:
       m_RotationOrder: 4
     colorGradient:
       serializedVersion: 2
-      key0: {r: 0.3132075, g: 0.3132075, b: 0.3132075, a: 1}
-      key1: {r: 1, g: 1, b: 1, a: 1}
+      key0: {r: 0.9098039, g: 0.8671486, b: 0.019607848, a: 1}
+      key1: {r: 0.8117647, g: 0.09019607, b: 0.25704336, a: 1}
       key2: {r: 0, g: 0, b: 0, a: 0}
       key3: {r: 0, g: 0, b: 0, a: 0}
       key4: {r: 0, g: 0, b: 0, a: 0}

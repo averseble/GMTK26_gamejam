@@ -4,19 +4,14 @@ using UnityEngine.UI;
 
 public class BattleMenuUI : MonoBehaviour
 {
-    [Header("Панели (внутри — свои кнопки/текст)")]
     [SerializeField] GameObject winPanel;
     [SerializeField] GameObject losePanel;
 
-    [Header("Слайд: нижняя (спрятано) → верхняя (показано)")]
     [SerializeField] Transform slideRoot;
-    [Tooltip("Позиция под картой")]
     [SerializeField] Vector3 bottomLocalPosition;
-    [Tooltip("Позиция когда меню видно")]
     [SerializeField] Vector3 topLocalPosition;
     [SerializeField] float slideDuration = 0.45f;
 
-    [Header("World Space UI")]
     [SerializeField] Canvas canvas;
     [SerializeField] Camera eventCamera;
 
@@ -49,10 +44,6 @@ public class BattleMenuUI : MonoBehaviour
             canvas.gameObject.AddComponent<GraphicRaycaster>();
     }
 
-    /// <summary>
-    /// Win → winPanel (внутри Next Enemy и т.п.).
-    /// Lose / Draw / NoHits → losePanel (внутри Restart и т.п.).
-    /// </summary>
     public void ShowResult(BattleOutcome outcome)
     {
         bool won = outcome == BattleOutcome.PlayerWin;
@@ -127,8 +118,6 @@ public class BattleMenuUI : MonoBehaviour
         _slideRoutine = null;
     }
 
-    // --- кнопки → только через GameRoot / Run ---
-
     public void OnRestartClicked()
     {
         GameRoot.Instance.Run.RestartBattle();
@@ -137,7 +126,6 @@ public class BattleMenuUI : MonoBehaviour
     public void OnNextEnemyClicked()
     {
         GameRoot.Instance.Run.OnBattleFinished(true);
-        // Пока нет следующего врага — тот же рестарт боя через корень
         GameRoot.Instance.Run.RestartBattle();
     }
 

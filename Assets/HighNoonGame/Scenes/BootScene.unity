@@ -130,6 +130,7 @@ GameObject:
   - component: {fileID: 1473441318}
   - component: {fileID: 1473441317}
   - component: {fileID: 1473441319}
+  - component: {fileID: 1473441320}
   m_Layer: 0
   m_Name: GameRoot
   m_TagString: Untagged
@@ -177,7 +178,30 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RunManager
   playerConfig: {fileID: 11400000, guid: a09d585fa23c08645be29947e0fa0ba1, type: 2}
-  enemyConfig: {fileID: 11400000, guid: fcf3e8c1ade8781429517277d82cc206, type: 2}
+  enemyConfig: {fileID: 11400000, guid: 50eadd2dcd56d6545ba668c6a4564525, type: 2}
+--- !u!114 &1473441320
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1473441316}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b92cd2f938b6509459c36aa77b9ebd43, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AudioManager
+  shotClip: {fileID: 8300000, guid: 1eebc3f2ea671484685861a7569d23df, type: 3}
+  shotVolume: 0.25
+  characterHitClip: {fileID: 8300000, guid: 5f76d5c6e6066ab4cb791ac67eba1f01, type: 3}
+  characterHitVolume: 1.8
+  tileImpactClip: {fileID: 8300000, guid: f695979b54567ce4a926052342b23a02, type: 3}
+  tileImpactVolume: 1.14
+  uiClickClip: {fileID: 8300000, guid: c7da6e08ccdbecc4d91a4357a4f16050, type: 3}
+  uiClickVolume: 1.66
+  musicClip: {fileID: 0}
+  musicClipVolume: 1
+  sfxPoolSize: 8
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

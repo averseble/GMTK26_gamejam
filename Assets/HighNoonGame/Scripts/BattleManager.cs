@@ -78,23 +78,20 @@ public class BattleManager : Singleton<BattleManager>
     [Tooltip("Пауза между шагами High Noon")]
     public float highNoonStepDelay = 0.45f;
 
-    [Header("Выстрел (Bullet Trace)")]
-    [SerializeField] Tracer bulletTracePrefab;
-    [SerializeField] float shotLineHeight = 1.2f;
+    [Header("Shot Trace")]
+    [SerializeField] Tracer bulletCorePrefab;
+    [SerializeField] Tracer bulletSmokePrefab;
+    [SerializeField] float shotLineHeight = 0f;
+    [SerializeField] float bulletCoreDuration = 0.12f;
+    [SerializeField] float bulletSmokeDuration = 0.85f;
 
-    [Header("Выстрел VFX")]
-    [Tooltip("Вспышка в точке выстрела")]
+    [Header("Shot VFX")]
     [SerializeField] ParticleSystem muzzleFlashPrefab;
-    [Tooltip("Попадание в клетку / промах")]
     [SerializeField] ParticleSystem tileImpactPrefab;
-    [Tooltip("Попадание во врага")]
     [SerializeField] ParticleSystem enemyHitPrefab;
-    [Tooltip("Попадание в игрока (если пусто — используется enemyHit)")]
     [SerializeField] ParticleSystem playerHitPrefab;
-    [Tooltip("Пятно / след на земле в точке попадания")]
     [SerializeField] ParticleSystem groundStainPrefab;
     [SerializeField] float shotVfxDestroyDelay = 2f;
-    [Tooltip("Как долго живёт пятно на земле (дольше вспышек)")]
     [SerializeField] float groundStainLifetime = 20f;
     [SerializeField] float groundStainHeight = 0.02f;
 
@@ -325,6 +322,7 @@ public class BattleManager : Singleton<BattleManager>
         SpawnShotVfx(muzzleFlashPrefab, muzzlePos, shotVfxDestroyDelay);
         SpawnShotLine(muzzlePos, impactPos);
         SpawnShotVfx(groundStainPrefab, groundPos, groundStainLifetime);
+        PlayShotAudio();
 
         bool hitCharacter = isPlayer
             ? (_enemyAlive && target == enemyPos)
@@ -336,10 +334,12 @@ public class BattleManager : Singleton<BattleManager>
                 ? enemyHitPrefab
                 : (playerHitPrefab != null ? playerHitPrefab : enemyHitPrefab);
             SpawnShotVfx(hitFx, impactPos, shotVfxDestroyDelay);
+            PlayCharacterHitAudio();
         }
         else
         {
             SpawnShotVfx(tileImpactPrefab, impactPos, shotVfxDestroyDelay);
+            PlayTileImpactAudio();
         }
 
         return hitCharacter;
@@ -347,15 +347,36 @@ public class BattleManager : Singleton<BattleManager>
 
     void SpawnShotLine(Vector3 start, Vector3 end)
     {
-        if (bulletTracePrefab == null)
-        {
-            Debug.LogWarning("BattleManager: bulletTracePrefab is not assigned.");
-            return;
-        }
+        SpawnTracer(bulletCorePrefab, start, end, bulletCoreDuration, enableNoise: false);
+        SpawnTracer(bulletSmokePrefab, start, end, bulletSmokeDuration, enableNoise: true);
+    }
 
-        var tracer = Instantiate(bulletTracePrefab);
+    static void PlayShotAudio()
+    {
+        if (GameRoot.Instance != null && GameRoot.Instance.Audio != null)
+            GameRoot.Instance.Audio.PlayShot();
+    }
+
+    static void PlayCharacterHitAudio()
+    {
+        if (GameRoot.Instance != null && GameRoot.Instance.Audio != null)
+            GameRoot.Instance.Audio.PlayCharacterHit();
+    }
+
+    static void PlayTileImpactAudio()
+    {
+        if (GameRoot.Instance != null && GameRoot.Instance.Audio != null)
+            GameRoot.Instance.Audio.PlayTileImpact();
+    }
+
+    void SpawnTracer(Tracer prefab, Vector3 start, Vector3 end, float duration, bool enableNoise)
+    {
+        if (prefab == null)
+            return;
+
+        var tracer = Instantiate(prefab);
         tracer.gameObject.SetActive(false);
-        tracer.Play(start, end, destroyWhenDone: true);
+        tracer.Play(start, end, true);
     }
 
     void SpawnShotVfx(ParticleSystem prefab, Vector3 worldPos, float destroyDelay)
