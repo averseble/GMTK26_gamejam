@@ -249,9 +249,11 @@ public class PlayerTileSelecter : MonoBehaviour
 
     public void CommitActionPreview(TileActionKind kind, int tileIndex)
     {
-        if (!TryGetTileWorldPosition(tileIndex, out Vector3 worldPos))
+        EnsureTiles();
+        if (tileIndex < 0 || tileIndex >= Tiles.Count || Tiles[tileIndex] == null)
             return;
 
+        SelactableTile tile = Tiles[tileIndex];
         GameObject prefab = kind == TileActionKind.Move ? movePreviewPrefab : shootPreviewPrefab;
         if (prefab == null)
             return;
@@ -259,7 +261,9 @@ public class PlayerTileSelecter : MonoBehaviour
         var go = Instantiate(prefab);
         go.name = kind == TileActionKind.Move ? "MovePreview_Committed" : "ShootPreview_Committed";
         DisableColliders(go);
-        go.transform.position = worldPos + previewOffset;
+        go.transform.SetPositionAndRotation(
+            tile.PreviewWorldPosition + previewOffset,
+            tile.transform.rotation);
         go.SetActive(true);
         _committedPreviews.Add(go);
     }
@@ -273,7 +277,7 @@ public class PlayerTileSelecter : MonoBehaviour
             return false;
         }
 
-        worldPos = Tiles[tileIndex].transform.position;
+        worldPos = Tiles[tileIndex].PreviewWorldPosition;
         return true;
     }
 

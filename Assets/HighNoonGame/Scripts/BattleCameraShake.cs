@@ -16,6 +16,11 @@ public class BattleCameraShake : MonoBehaviour
 
     void Awake()
     {
+        CaptureLocalOrigin();
+    }
+
+    public void CaptureLocalOrigin()
+    {
         _localOrigin = transform.localPosition;
     }
 

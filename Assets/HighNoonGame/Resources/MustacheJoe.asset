@@ -12,11 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27c5ffb0d564c8743bafa0dc382d8a4d, type: 3}
   m_Name: MustacheJoe
   m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
-  enemyName: MustacheJoe
+  enemyName: Mustache Joe
   enemyCharacterPrefab: {fileID: 7659032319657720923, guid: 54c76c9889cea0a4497b3ceeaf5dd11c, type: 3}
   AiType: 5
   disabledParts:
   - LegInvalid
-  - NetGlaz
+  - NetGlazChel
   - NetGlazaChel
   - KurenieUbiwaet
+  lines:
+  - Hoo-hoo, another fool hungry for easy coin! <i>I'll read you like an open book
+    out there</i> and shoot the stupid right out of you! Every weakness shows on
+    the outside, and yours, amigo, I spotted a long time ago!
+  postBattleWinLines:
+  - <b><size=120%>OH GOD, MY MUSTACHE!!!</size></b> May your spaghetti always go
+    cold, you sniveling brat!!!!!!
+  postBattleLoseLines:
+  - Run home to mama!
+  talkSounds:
+  - {fileID: 8300000, guid: 54eabbad31b1442498c0f57746714239, type: 3}
+  - {fileID: 8300000, guid: 6ecab154283b42047827c1e65ac5c276, type: 3}
+  - {fileID: 8300000, guid: 4323364120293ef4eaea51de7342ae8f, type: 3}
+  talkSoundVolume: 1

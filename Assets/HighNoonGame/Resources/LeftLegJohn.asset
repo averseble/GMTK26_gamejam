@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27c5ffb0d564c8743bafa0dc382d8a4d, type: 3}
   m_Name: LeftLegJohn
   m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
-  enemyName: LeftLegJohn
+  enemyName: One-leg Ted
   enemyCharacterPrefab: {fileID: 7659032319657720923, guid: 54c76c9889cea0a4497b3ceeaf5dd11c, type: 3}
   AiType: 2
   disabledParts:
@@ -21,3 +21,15 @@ MonoBehaviour:
   - NetGlazaChel
   - KurenieUbiwaet
   - mustache
+  lines:
+  - Don't look at me like that, even like this, I'm sharper, faster, and better than
+    you! <i><size=80%><color=#AAAAAA>...on one side...</color></size></i>
+  postBattleWinLines:
+  - You just got lucky!
+  postBattleLoseLines:
+  - ' And I''m cooler, too!'
+  talkSounds:
+  - {fileID: 8300000, guid: 9843f3679e748a443914f9da5e6dd774, type: 3}
+  - {fileID: 8300000, guid: 43757aa0bddffd04fb011a147c24fcb3, type: 3}
+  - {fileID: 8300000, guid: 669af6decaab7344282dcd9c26ec5a67, type: 3}
+  talkSoundVolume: 1

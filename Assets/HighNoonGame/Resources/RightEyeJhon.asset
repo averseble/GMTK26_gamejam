@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27c5ffb0d564c8743bafa0dc382d8a4d, type: 3}
   m_Name: RightEyeJhon
   m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
-  enemyName: RightEyeJohn
+  enemyName: 'One-Eye Jack '
   enemyCharacterPrefab: {fileID: 7659032319657720923, guid: 54c76c9889cea0a4497b3ceeaf5dd11c, type: 3}
   AiType: 1
   disabledParts:
@@ -20,3 +20,16 @@ MonoBehaviour:
   - NetGlazChel
   - mustache
   - KurenieUbiwaet
+  lines:
+  - You've run into a legend of the gun! My eyes... My eye, sharp as an eagle's!
+    Nobody's ever walked away from me without a bullet in 'em!... <i><size=80%><color=#AAAAAA>except
+    the ones standing on my left...</color></size></i>
+  postBattleWinLines:
+  - Again!!!!!!
+  postBattleLoseLines:
+  - Oh God, I didn't even feel it
+  talkSounds:
+  - {fileID: 8300000, guid: 6b8fa9d2b58b47f45913a9bd5ce04ed2, type: 3}
+  - {fileID: 8300000, guid: a1a46c58028f2544ea3a7310a7e127e7, type: 3}
+  - {fileID: 8300000, guid: 9f6af2532c2e97646ba414438acc97b4, type: 3}
+  talkSoundVolume: 1

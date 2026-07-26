@@ -199,7 +199,7 @@ MonoBehaviour:
   tileImpactVolume: 1.14
   uiClickClip: {fileID: 8300000, guid: c7da6e08ccdbecc4d91a4357a4f16050, type: 3}
   uiClickVolume: 1.66
-  musicClip: {fileID: 0}
+  musicClip: {fileID: 8300000, guid: 8d97fe9f06859424f828b05820ac7261, type: 3}
   musicClipVolume: 1
   sfxPoolSize: 8
 --- !u!1660057539 &9223372036854775807

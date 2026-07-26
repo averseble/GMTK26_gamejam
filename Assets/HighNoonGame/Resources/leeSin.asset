@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27c5ffb0d564c8743bafa0dc382d8a4d, type: 3}
   m_Name: leeSin
   m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
-  enemyName: leeSin
+  enemyName: Blind Bill
   enemyCharacterPrefab: {fileID: 7659032319657720923, guid: 54c76c9889cea0a4497b3ceeaf5dd11c, type: 3}
   AiType: 3
   disabledParts:
@@ -20,3 +20,17 @@ MonoBehaviour:
   - NetGlazaChel
   - KurenieUbiwaet
   - mustache
+  lines:
+  - Just try and touch me and I'll flatten you into a cow patty!! Main thing is,
+    stand still so I can hit you.......
+  postBattleWinLines:
+  - '<b>Aaaaaah!!! You cheated!!</b>
+
+'
+  postBattleLoseLines:
+  - Serves you right!
+  talkSounds:
+  - {fileID: 8300000, guid: c07c692fa80987d4cacda1bc04e0c065, type: 3}
+  - {fileID: 8300000, guid: 61de36e219a7408448689c793ca0943e, type: 3}
+  - {fileID: 8300000, guid: 996354570b35fec4f96e44f24aa5ef9f, type: 3}
+  talkSoundVolume: 1

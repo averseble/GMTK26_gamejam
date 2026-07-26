@@ -24,7 +24,45 @@ public class EnemyConfig : ScriptableObject
     [Tooltip("Child object names on the shared enemy model to disable for this variant. Examples: Shlapa, mustache, LegNormal, LegInvalid, NetGlazChel, NetGlazaChel, Cig.002, KurenieUbiwaet")]
     [SerializeField] string[] disabledParts;
 
+    [Header("Lines")]
+    [TextArea(2, 4)]
+    [SerializeField] string[] lines;
+    [TextArea(2, 4)]
+    [SerializeField] string[] postBattleWinLines;
+    [TextArea(2, 4)]
+    [SerializeField] string[] postBattleLoseLines;
+
+    [Header("Talk Sounds")]
+    [SerializeField] AudioClip[] talkSounds;
+    [SerializeField] [Range(0f, 2f)] float talkSoundVolume = 1f;
+
     public string EnemyName => enemyName;
+
+    public string[] Lines => lines;
+
+    public string[] PostBattleWinLines => postBattleWinLines;
+
+    public string[] PostBattleLoseLines => postBattleLoseLines;
+
+    public AudioClip[] TalkSounds => talkSounds;
+
+    public float TalkSoundVolume => talkSoundVolume;
+
+    public AudioClip GetRandomTalkSound()
+    {
+        if (talkSounds == null || talkSounds.Length == 0)
+            return null;
+
+        return talkSounds[UnityEngine.Random.Range(0, talkSounds.Length)];
+    }
+
+    public string[] GetPostBattleLines(bool playerWon)
+    {
+        if (playerWon)
+            return postBattleWinLines;
+
+        return postBattleLoseLines;
+    }
 
     public GameObject GetEnemyPrefab()
     {
@@ -34,6 +72,14 @@ public class EnemyConfig : ScriptableObject
     public EnemyAiType GetAiType()
     {
         return AiType;
+    }
+
+    public string GetRandomLine()
+    {
+        if (lines == null || lines.Length == 0)
+            return string.Empty;
+
+        return lines[UnityEngine.Random.Range(0, lines.Length)];
     }
 
     public void ApplyVisualParts(GameObject instance)

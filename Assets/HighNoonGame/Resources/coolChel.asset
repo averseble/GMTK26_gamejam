@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27c5ffb0d564c8743bafa0dc382d8a4d, type: 3}
   m_Name: coolChel
   m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
-  enemyName: coolChel
+  enemyName: ' Cigar John'
   enemyCharacterPrefab: {fileID: 7659032319657720923, guid: 54c76c9889cea0a4497b3ceeaf5dd11c, type: 3}
   AiType: 4
   disabledParts:
@@ -20,3 +20,15 @@ MonoBehaviour:
   - NetGlazChel
   - NetGlazaChel
   - mustache
+  lines:
+  - Let's have a smoke first, amigo... With a cigar in your teeth, the bullets fly
+    faster... Only thing is, they kinda block your view straight ahead, cough cough
+  postBattleWinLines:
+  - I knew it, shootin's just not my thing..
+  postBattleLoseLines:
+  - <b>YEEEAAAH, baby!</b> Eat dust!
+  talkSounds:
+  - {fileID: 8300000, guid: f69e141b8fd10d642bb9c79ce59bea60, type: 3}
+  - {fileID: 8300000, guid: 989a052d8daabc241acd63275c7389bd, type: 3}
+  - {fileID: 8300000, guid: c3668f2eedd06e64da273cfab97f4afe, type: 3}
+  talkSoundVolume: 1

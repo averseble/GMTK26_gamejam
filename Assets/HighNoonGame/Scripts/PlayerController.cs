@@ -9,10 +9,13 @@ public class PlayerController : MonoBehaviour
     static readonly int ShootHash = Animator.StringToHash("Shoot");
     static readonly int VictoryHash = Animator.StringToHash("Victory");
     static readonly int IsDashingHash = Animator.StringToHash("IsDashing");
+    static readonly int MenuSceneHash = Animator.StringToHash("MenuScene");
 
     [SerializeField] bool isPlayer = true;
+    [SerializeField] bool inMenu;
     [SerializeField] Animator animator;
     [SerializeField] string dashStateName = "Armature_CrauchDash";
+    [SerializeField] string menuStateName = "Armature_menu pose";
     [SerializeField] int animatorLayer;
     [SerializeField] float dashCrossFade = 0.04f;
     [SerializeField] [Range(0.05f, 0.95f)] float dashMoveAtNormalized = 0.5f;
@@ -48,16 +51,44 @@ public class PlayerController : MonoBehaviour
         CacheRagdoll();
         if (_ragdollBodies != null && _ragdollBodies.Length > 0)
             SetRagdollActive(false);
+
+        if (inMenu)
+            ApplyMenuMode();
     }
 
     void OnEnable()
     {
+        if (inMenu)
+        {
+            ApplyMenuMode();
+            return;
+        }
+
         TrySubscribe();
     }
 
     void Start()
     {
+        if (inMenu)
+        {
+            ApplyMenuMode();
+            return;
+        }
+
         TrySubscribe();
+    }
+
+    void ApplyMenuMode()
+    {
+        if (animator == null || !animator.enabled)
+            return;
+
+        SetBool(MenuSceneHash, true);
+
+        if (string.IsNullOrEmpty(menuStateName))
+            return;
+
+        animator.Play(menuStateName, animatorLayer, 0f);
     }
 
     void OnDisable()
@@ -69,6 +100,9 @@ public class PlayerController : MonoBehaviour
 
     void TrySubscribe()
     {
+        if (inMenu)
+            return;
+
         if (!BattleManager.TryGetInstance(out var battle))
             return;
 
@@ -205,6 +239,9 @@ public class PlayerController : MonoBehaviour
 
     void OnDash(bool movedIsPlayer, PlanningActionType actionType)
     {
+        if (inMenu)
+            return;
+
         if (movedIsPlayer != isPlayer)
             return;
 
@@ -322,6 +359,9 @@ public class PlayerController : MonoBehaviour
 
     void OnCharacterShot(bool shooterIsPlayer, Vector3 aimWorldPos)
     {
+        if (inMenu)
+            return;
+
         if (shooterIsPlayer != isPlayer)
             return;
 
@@ -368,6 +408,9 @@ public class PlayerController : MonoBehaviour
 
     void OnCharacterHit(bool hitPlayer, Vector3 hitDirection)
     {
+        if (inMenu)
+            return;
+
         if (hitPlayer != isPlayer)
             return;
 
@@ -390,6 +433,9 @@ public class PlayerController : MonoBehaviour
 
     void OnBattleResolved(BattleOutcome outcome)
     {
+        if (inMenu)
+            return;
+
         if (_isDead)
             return;
 

@@ -63,9 +63,9 @@ public class AudioManager : MonoBehaviour
 
     void Awake()
     {
-        _master = PlayerPrefs.GetFloat(PrefMaster, 1f);
-        _sfx = PlayerPrefs.GetFloat(PrefSfx, 1f);
-        _music = PlayerPrefs.GetFloat(PrefMusic, 1f);
+        _master = PlayerPrefs.GetFloat(PrefMaster, 0.5f);
+        _sfx = PlayerPrefs.GetFloat(PrefSfx, 0.5f);
+        _music = PlayerPrefs.GetFloat(PrefMusic, 0.5f);
 
         _musicSource = gameObject.AddComponent<AudioSource>();
         _musicSource.loop = true;

@@ -90,6 +90,10 @@ public class BattleManager : Singleton<BattleManager>
 
     public PlayerTileSelecter playerTileSelecter;
     public BattleMenuUI battleMenuUI;
+    [SerializeField] EnemyDialogueUI enemyDialogueUI;
+    [SerializeField] BattleDialogueCamera dialogueCamera;
+    [SerializeField] DayNightLighting dayNightLighting;
+    [SerializeField] PlanningClockShake planningClock;
 
     private RunManager run;
 
@@ -100,8 +104,11 @@ public class BattleManager : Singleton<BattleManager>
     Transform enemyMuzzleTarget;
     Transform enemyHeadTarget;
 
-    int playerPos = 5;
-    int enemyPos = 2;
+    const int DefaultPlayerPos = 5;
+    const int DefaultEnemyPos = 2;
+
+    int playerPos = DefaultPlayerPos;
+    int enemyPos = DefaultEnemyPos;
 
     const int columnsInMap = 4;
     const int rowsInMap = 2;
@@ -114,8 +121,14 @@ public class BattleManager : Singleton<BattleManager>
 
     public int maxPlanningActions = 3;
     public int curPlayerPlaningAction = 0;
-    [Tooltip("Пауза между шагами High Noon")]
-    public float highNoonStepDelay = 0.45f;
+    [Tooltip("Пауза между шагами High Noon (только движение / общий ритм)")]
+    public float highNoonStepDelay = 0.7f;
+    [Tooltip("Пауза после хода перед выстрелами")]
+    [SerializeField] float highNoonPreShootDelay = 0.4f;
+    [Tooltip("Пауза между выстрелом игрока и врага")]
+    [SerializeField] float highNoonShotStagger = 0.25f;
+    [Tooltip("Пауза после выстрелов перед следующим шагом")]
+    [SerializeField] float highNoonAfterShotDelay = 0.75f;
     [SerializeField] float animWaitTimeout = 2f;
 
     public float AnimWaitTimeout
@@ -161,6 +174,7 @@ public class BattleManager : Singleton<BattleManager>
     int _pendingAnimWaits;
     bool _playerDashMidpointReached;
     bool _playerDashFinished;
+    bool _skipOpeningDialogue;
 
     protected override void Awake()
     {
@@ -257,7 +271,22 @@ public class BattleManager : Singleton<BattleManager>
 
     public void StartBattle()
     {
-        ShowOpening();
+        StartCoroutine(StartBattleRoutine());
+    }
+
+    IEnumerator StartBattleRoutine()
+    {
+        if (_skipOpeningDialogue)
+        {
+            _skipOpeningDialogue = false;
+            if (enemyDialogueUI == null)
+                enemyDialogueUI = FindFirstObjectByType<EnemyDialogueUI>(FindObjectsInactive.Include);
+            if (enemyDialogueUI != null)
+                enemyDialogueUI.HideImmediate();
+        }
+        else
+            yield return ShowOpeningRoutine();
+
         StartPlanningPhase();
     }
 
@@ -295,13 +324,32 @@ public class BattleManager : Singleton<BattleManager>
 
             yield return ExecuteMovesForStep(step);
 
+            bool playerShoots = _playerPlanActive && _playerAlive
+                && playerPlanningList[step].type == PlanningActionType.Shoot;
+            bool enemyShoots = _enemyPlanActive && _enemyAlive
+                && enemyPlanningList[step].type == PlanningActionType.Shoot;
+
+            if (!playerShoots && !enemyShoots)
+            {
+                yield return WaitHighNoon(highNoonStepDelay);
+                continue;
+            }
+
+            yield return WaitHighNoon(highNoonPreShootDelay);
+
             bool playerHitEnemy = false;
             bool enemyHitPlayer = false;
 
-            if (_playerPlanActive && _playerAlive)
+            if (playerShoots)
                 playerHitEnemy = TryExecuteShoot(true, playerPlanningList[step]);
-            if (_enemyPlanActive && _enemyAlive)
+
+            if (playerShoots && enemyShoots)
+                yield return WaitHighNoon(highNoonShotStagger);
+
+            if (enemyShoots)
                 enemyHitPlayer = TryExecuteShoot(false, enemyPlanningList[step]);
+
+            yield return WaitHighNoon(highNoonAfterShotDelay);
 
             if (playerHitEnemy && enemyHitPlayer)
             {
@@ -312,7 +360,6 @@ public class BattleManager : Singleton<BattleManager>
                 _playerAlive = false;
                 _enemyPlanActive = false;
                 _playerPlanActive = false;
-                yield return new WaitForSeconds(highNoonStepDelay);
                 break;
             }
 
@@ -321,7 +368,6 @@ public class BattleManager : Singleton<BattleManager>
                 OnEnemyHit();
                 _enemyAlive = false;
                 _enemyPlanActive = false;
-                yield return new WaitForSeconds(highNoonStepDelay);
                 break;
             }
 
@@ -330,15 +376,20 @@ public class BattleManager : Singleton<BattleManager>
                 OnPlayerHit();
                 _playerAlive = false;
                 _playerPlanActive = false;
-                yield return new WaitForSeconds(highNoonStepDelay);
                 break;
             }
-
-            yield return new WaitForSeconds(highNoonStepDelay * 0.5f);
         }
 
         EndHighNoonPhase();
         _highNoonRoutine = null;
+    }
+
+    static IEnumerator WaitHighNoon(float seconds)
+    {
+        if (seconds <= 0f)
+            yield break;
+
+        yield return new WaitForSeconds(seconds);
     }
 
     IEnumerator ExecuteMovesForStep(int step)
@@ -909,12 +960,18 @@ public class BattleManager : Singleton<BattleManager>
 
     void EndHighNoonPhase()
     {
+        StartCoroutine(EndHighNoonPhaseRoutine());
+    }
+
+    IEnumerator EndHighNoonPhaseRoutine()
+    {
         currentState = BattleState.ending;
+        WaitingForActionSelection = false;
         HighNoonEnded?.Invoke();
 
         BattleOutcome outcome;
         if (!_playerAlive && !_enemyAlive)
-            outcome = BattleOutcome.Draw; 
+            outcome = BattleOutcome.Draw;
         else if (_playerAlive && !_enemyAlive)
             outcome = BattleOutcome.PlayerWin;
         else if (!_playerAlive && _enemyAlive)
@@ -926,11 +983,13 @@ public class BattleManager : Singleton<BattleManager>
 
         if (outcome == BattleOutcome.NoHits)
         {
-            GameRoot.Instance.RestartBattle();
-            return;
+            yield return RematchAfterNoHitsRoutine();
+            yield break;
         }
 
         BattleResolved?.Invoke(outcome);
+
+        yield return ShowPostBattleDialogueRoutine(outcome == BattleOutcome.PlayerWin);
 
         if (battleMenuUI == null)
             battleMenuUI = FindFirstObjectByType<BattleMenuUI>();
@@ -940,6 +999,104 @@ public class BattleManager : Singleton<BattleManager>
 
         if (GameRoot.Instance != null && GameRoot.Instance.Run != null)
             GameRoot.Instance.Run.OnBattleFinished(outcome == BattleOutcome.PlayerWin);
+    }
+
+    IEnumerator RematchAfterNoHitsRoutine()
+    {
+        if (dayNightLighting == null)
+            dayNightLighting = FindFirstObjectByType<DayNightLighting>();
+
+        if (dayNightLighting != null)
+            yield return dayNightLighting.PlayFullCycleToHighNoonRoutine();
+
+        ResetBattleForRematch();
+        _skipOpeningDialogue = true;
+        yield return StartBattleRoutine();
+    }
+
+    void ResetBattleForRematch()
+    {
+        if (_highNoonRoutine != null)
+        {
+            StopCoroutine(_highNoonRoutine);
+            _highNoonRoutine = null;
+        }
+
+        if (battleMap != null)
+        {
+            for (int i = 0; i < battleMap.Length; i++)
+                battleMap[i].ownerID = 0;
+        }
+
+        playerPos = DefaultPlayerPos;
+        enemyPos = DefaultEnemyPos;
+
+        if (battleMap != null)
+        {
+            if (playerPos >= 0 && playerPos < battleMap.Length)
+                battleMap[playerPos].ownerID = 1;
+            if (enemyPos >= 0 && enemyPos < battleMap.Length)
+                battleMap[enemyPos].ownerID = 2;
+        }
+
+        playerPlanningList = new PlanningAction[maxPlanningActions];
+        enemyPlanningList = new PlanningAction[maxPlanningActions];
+        curPlayerPlaningAction = 0;
+        _playerPlanActive = true;
+        _enemyPlanActive = true;
+        _playerAlive = true;
+        _enemyAlive = true;
+        WaitingForActionSelection = false;
+
+        if (playerCharacter != null && battleMap != null && playerPos >= 0 && playerPos < battleMap.Length)
+            playerCharacter.transform.SetPositionAndRotation(battleMap[playerPos].position, Quaternion.identity);
+
+        if (enemyCharacter != null && battleMap != null && enemyPos >= 0 && enemyPos < battleMap.Length)
+            enemyCharacter.transform.SetPositionAndRotation(battleMap[enemyPos].position, Quaternion.identity);
+
+        if (playerTileSelecter != null)
+            playerTileSelecter.ClearCommittedPreviews();
+
+        if (enemyDialogueUI == null)
+            enemyDialogueUI = FindFirstObjectByType<EnemyDialogueUI>(FindObjectsInactive.Include);
+        if (enemyDialogueUI != null)
+            enemyDialogueUI.HideImmediate();
+
+        if (dialogueCamera == null)
+            dialogueCamera = FindFirstObjectByType<BattleDialogueCamera>();
+        if (dialogueCamera != null)
+            dialogueCamera.RestoreInstant();
+    }
+
+    IEnumerator ShowPostBattleDialogueRoutine(bool playerWon)
+    {
+        if (enemyDialogueUI == null)
+            enemyDialogueUI = FindFirstObjectByType<EnemyDialogueUI>(FindObjectsInactive.Include);
+
+        EnemyConfig enemyConfig = null;
+        if (run != null)
+            enemyConfig = run.GetEnemySO();
+
+        if (enemyDialogueUI == null || enemyConfig == null)
+            yield break;
+
+        string[] lines = enemyConfig.GetPostBattleLines(playerWon);
+        if (lines == null || lines.Length == 0)
+        {
+            enemyDialogueUI.HideImmediate();
+            yield break;
+        }
+
+        if (!enemyDialogueUI.gameObject.activeSelf)
+            enemyDialogueUI.gameObject.SetActive(true);
+
+        yield return FocusDialogueCameraRoutine();
+        yield return enemyDialogueUI.PlaySequence(
+            enemyConfig.EnemyName,
+            lines,
+            enemyConfig.TalkSounds,
+            enemyConfig.TalkSoundVolume);
+        yield return RestoreDialogueCameraRoutine();
     }
 
     void StartPlanningPhase()
@@ -958,9 +1115,65 @@ public class BattleManager : Singleton<BattleManager>
         PlanningProgressChanged?.Invoke(curPlayerPlaningAction, maxPlanningActions);
     }
 
-    public void ShowOpening()
+    IEnumerator ShowOpeningRoutine()
     {
         currentState = BattleState.opening;
+        WaitingForActionSelection = false;
+
+        if (enemyDialogueUI == null)
+            enemyDialogueUI = FindFirstObjectByType<EnemyDialogueUI>(FindObjectsInactive.Include);
+
+        EnemyConfig enemyConfig = null;
+        if (run != null)
+            enemyConfig = run.GetEnemySO();
+
+        if (enemyDialogueUI != null)
+        {
+            if (!enemyDialogueUI.gameObject.activeSelf)
+                enemyDialogueUI.gameObject.SetActive(true);
+
+            if (enemyConfig != null && enemyConfig.Lines != null && enemyConfig.Lines.Length > 0)
+            {
+                yield return FocusDialogueCameraRoutine();
+                yield return enemyDialogueUI.PlaySequence(
+                    enemyConfig.EnemyName,
+                    enemyConfig.Lines,
+                    enemyConfig.TalkSounds,
+                    enemyConfig.TalkSoundVolume);
+                yield return RestoreDialogueCameraRoutine();
+            }
+            else
+                enemyDialogueUI.HideImmediate();
+        }
+    }
+
+    IEnumerator FocusDialogueCameraRoutine()
+    {
+        if (dialogueCamera == null)
+            dialogueCamera = FindFirstObjectByType<BattleDialogueCamera>();
+
+        if (dialogueCamera == null)
+            yield break;
+
+        Transform focus = enemyHeadTarget;
+        if (focus == null && enemyCharacter != null)
+            focus = enemyCharacter.transform;
+
+        if (focus == null)
+            yield break;
+
+        yield return dialogueCamera.FocusRoutine(focus);
+    }
+
+    IEnumerator RestoreDialogueCameraRoutine()
+    {
+        if (dialogueCamera == null)
+            dialogueCamera = FindFirstObjectByType<BattleDialogueCamera>();
+
+        if (dialogueCamera == null)
+            yield break;
+
+        yield return dialogueCamera.RestoreRoutine();
     }
 
     public void BeginActionSelection()
@@ -992,8 +1205,19 @@ public class BattleManager : Singleton<BattleManager>
         if (curPlayerPlaningAction >= maxPlanningActions)
         {
             EndActionSelection();
-            StartHighNoonPhase();
+            StartCoroutine(BeginHighNoonPhaseRoutine());
         }
+    }
+
+    IEnumerator BeginHighNoonPhaseRoutine()
+    {
+        if (planningClock == null)
+            planningClock = FindFirstObjectByType<PlanningClockShake>();
+
+        if (planningClock != null)
+            yield return planningClock.PlayNoonStrikeRoutine();
+
+        StartHighNoonPhase();
     }
 
     public void EndActionSelection()

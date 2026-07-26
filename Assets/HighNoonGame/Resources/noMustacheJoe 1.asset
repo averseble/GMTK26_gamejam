@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 27c5ffb0d564c8743bafa0dc382d8a4d, type: 3}
   m_Name: noMustacheJoe 1
   m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
-  enemyName: noMustacheJoe
+  enemyName: NO-Mustache Joe
   enemyCharacterPrefab: {fileID: 7659032319657720923, guid: 54c76c9889cea0a4497b3ceeaf5dd11c, type: 3}
   AiType: 6
   disabledParts:
@@ -21,3 +21,17 @@ MonoBehaviour:
   - NetGlazaChel
   - KurenieUbiwaet
   - mustache
+  lines:
+  - <b><size=120%>YOU AGAIN! NOW <b>YOU AIN'T GOT A CHANCE</b> AGAINST ME!!! MY REVOLVER'S
+    A WILD WOLF!!!! AND YOU'RE GONNA PAY FOR MY MUSTACHE!</size></b>
+  postBattleWinLines:
+  - '<b><size=120%>THIS CAN''T BE HAAAAAAPPENING!!!!.....</size></b>
+
+'
+  postBattleLoseLines:
+  - <b><size=120%>APOLOGIZE FOR THE MUSTACHE!!!</size></b>
+  talkSounds:
+  - {fileID: 8300000, guid: 19a252eb78d41fe48b93a20e31c12ec5, type: 3}
+  - {fileID: 8300000, guid: 6e8c3e7c68802614abbd90129cb821e4, type: 3}
+  - {fileID: 8300000, guid: be5b632b2aa1b504489745523dab5f1b, type: 3}
+  talkSoundVolume: 1
