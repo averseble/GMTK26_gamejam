@@ -56,6 +56,9 @@ public class BattleManager : Singleton<BattleManager>
     public event Action ShotFired;
     public event Action<int> TileShot;
     public event Action<bool> CharacterHit;
+    public event Action<int, int> PlanningProgressChanged;
+    public event Action HighNoonStarted;
+    public event Action HighNoonEnded;
 
     public PlayerTileSelecter playerTileSelecter;
     public BattleMenuUI battleMenuUI;
@@ -226,6 +229,7 @@ public class BattleManager : Singleton<BattleManager>
         if (playerTileSelecter != null)
             playerTileSelecter.ClearCommittedPreviews();
 
+        HighNoonStarted?.Invoke();
         _highNoonRoutine = StartCoroutine(HighNoonRoutine());
     }
 
@@ -527,6 +531,7 @@ public class BattleManager : Singleton<BattleManager>
     void EndHighNoonPhase()
     {
         currentState = BattleState.ending;
+        HighNoonEnded?.Invoke();
 
         BattleOutcome outcome;
         if (!_playerAlive && !_enemyAlive)
@@ -562,8 +567,14 @@ public class BattleManager : Singleton<BattleManager>
         curPlayerPlaningAction = 0;
         if (playerTileSelecter != null)
             playerTileSelecter.ClearCommittedPreviews();
+        NotifyPlanningProgress();
         BeginActionSelection();
         FillEnemyPlanningList();
+    }
+
+    void NotifyPlanningProgress()
+    {
+        PlanningProgressChanged?.Invoke(curPlayerPlaningAction, maxPlanningActions);
     }
 
     public void ShowOpening()
@@ -585,6 +596,7 @@ public class BattleManager : Singleton<BattleManager>
         int simPosBefore = SimulatePos(playerPos, playerPlanningList, curPlayerPlaningAction);
         playerPlanningList[curPlayerPlaningAction] = planAction;
         curPlayerPlaningAction++;
+        NotifyPlanningProgress();
 
         if (playerTileSelecter != null)
         {

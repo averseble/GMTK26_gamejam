@@ -32,8 +32,12 @@ public class GameRoot : PersistentSingleton<GameRoot>
         if (Fader == null)
             Fader = gameObject.AddComponent<ScreenFader>();
 
+        if (GetComponent<AudioListener>() == null)
+            gameObject.AddComponent<AudioListener>();
+
         EnsureEventSystem();
         SceneManager.sceneLoaded += OnSceneLoaded;
+        SyncAudioListener();
     }
 
     void OnDestroy()
@@ -53,10 +57,31 @@ public class GameRoot : PersistentSingleton<GameRoot>
     {
         EnsureEventSystem();
         CleanupDuplicateEventSystems();
+        SyncAudioListener();
         _isTransitioning = false;
 
         if (Fader != null)
             Fader.FadeIn();
+    }
+
+    void SyncAudioListener()
+    {
+        AudioListener ours = GetComponent<AudioListener>();
+        if (ours == null)
+            ours = gameObject.AddComponent<AudioListener>();
+
+        bool sceneHasOther = false;
+        AudioListener[] all = FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] != null && all[i] != ours)
+            {
+                sceneHasOther = true;
+                break;
+            }
+        }
+
+        ours.enabled = !sceneHasOther;
     }
 
     public void LoadMenu()
