@@ -15,3 +15,9 @@ MonoBehaviour:
   enemyName: LeftLegJohn
   enemyCharacterPrefab: {fileID: 7659032319657720923, guid: 54c76c9889cea0a4497b3ceeaf5dd11c, type: 3}
   AiType: 2
+  disabledParts:
+  - LegNormal
+  - NetGlazChel
+  - NetGlazaChel
+  - KurenieUbiwaet
+  - mustache

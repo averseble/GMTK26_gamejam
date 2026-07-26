@@ -1157,22 +1157,22 @@ MonoBehaviour:
   screenFader: {fileID: 0}
   slots:
   - cameraAnchor: {fileID: 2037884012}
-    enemyConfig: {fileID: 11400000, guid: 8c5e73df0e492fd439deb7d1819ef7c3, type: 2}
+    enemyConfig: {fileID: 11400000, guid: ff923c49bb722d84796a619031aeed08, type: 2}
     posterRoot: {fileID: 1439085023}
   - cameraAnchor: {fileID: 1904427866}
-    enemyConfig: {fileID: 11400000, guid: 50eadd2dcd56d6545ba668c6a4564525, type: 2}
+    enemyConfig: {fileID: 11400000, guid: 78d4c22a433bb4b459f20a299b47a977, type: 2}
     posterRoot: {fileID: 1864752652}
   - cameraAnchor: {fileID: 525905326}
-    enemyConfig: {fileID: 11400000, guid: fcf3e8c1ade8781429517277d82cc206, type: 2}
+    enemyConfig: {fileID: 11400000, guid: 8c5e73df0e492fd439deb7d1819ef7c3, type: 2}
     posterRoot: {fileID: 277171100}
   - cameraAnchor: {fileID: 1828085324}
-    enemyConfig: {fileID: 11400000, guid: fcf3e8c1ade8781429517277d82cc206, type: 2}
+    enemyConfig: {fileID: 11400000, guid: 50eadd2dcd56d6545ba668c6a4564525, type: 2}
     posterRoot: {fileID: 1059458711}
   - cameraAnchor: {fileID: 2146724265}
     enemyConfig: {fileID: 11400000, guid: fcf3e8c1ade8781429517277d82cc206, type: 2}
     posterRoot: {fileID: 1444979836}
   - cameraAnchor: {fileID: 626975022}
-    enemyConfig: {fileID: 11400000, guid: fcf3e8c1ade8781429517277d82cc206, type: 2}
+    enemyConfig: {fileID: 11400000, guid: 4c8dd8df64bb2ac4fb65a8e08bfead63, type: 2}
     posterRoot: {fileID: 1311570490}
   startIndex: 0
   wrapSelection: 1

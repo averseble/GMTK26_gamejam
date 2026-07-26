@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using DG.Tweening;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -45,6 +46,30 @@ public struct PlanningAction
 {
     public PlanningActionType type;
     public int shootTileIndex;
+    public int shootTileIndex2;
+    public int shootTileIndex3;
+
+    public static PlanningAction CreateMove(PlanningActionType moveType)
+    {
+        return new PlanningAction
+        {
+            type = moveType,
+            shootTileIndex = -1,
+            shootTileIndex2 = -1,
+            shootTileIndex3 = -1
+        };
+    }
+
+    public static PlanningAction CreateShoot(int tileA, int tileB = -1, int tileC = -1)
+    {
+        return new PlanningAction
+        {
+            type = PlanningActionType.Shoot,
+            shootTileIndex = tileA,
+            shootTileIndex2 = tileB,
+            shootTileIndex3 = tileC
+        };
+    }
 }
 
 public class BattleManager : Singleton<BattleManager>
@@ -55,10 +80,13 @@ public class BattleManager : Singleton<BattleManager>
 
     public event Action ShotFired;
     public event Action<int> TileShot;
-    public event Action<bool> CharacterHit;
+    public event Action<bool, Vector3> CharacterHit;
     public event Action<int, int> PlanningProgressChanged;
     public event Action HighNoonStarted;
     public event Action HighNoonEnded;
+    public event Action<bool, PlanningActionType> CharacterDash;
+    public event Action<bool, Vector3> CharacterShot;
+    public event Action<BattleOutcome> BattleResolved;
 
     public PlayerTileSelecter playerTileSelecter;
     public BattleMenuUI battleMenuUI;
@@ -88,6 +116,12 @@ public class BattleManager : Singleton<BattleManager>
     public int curPlayerPlaningAction = 0;
     [Tooltip("Пауза между шагами High Noon")]
     public float highNoonStepDelay = 0.45f;
+    [SerializeField] float animWaitTimeout = 2f;
+
+    public float AnimWaitTimeout
+    {
+        get { return animWaitTimeout; }
+    }
 
     [Header("Shot Trace")]
     [SerializeField] Tracer bulletCorePrefab;
@@ -107,6 +141,15 @@ public class BattleManager : Singleton<BattleManager>
     [SerializeField] float groundStainLifetime = 20f;
     [SerializeField] float groundStainHeight = 0.02f;
 
+    [Header("Dash Move")]
+    [SerializeField] float dashMoveDuration = 0.15f;
+    [SerializeField] Ease dashMoveEase = Ease.OutCubic;
+
+    [Header("Dash VFX")]
+    [SerializeField] ParticleSystem dashTrailPrefab;
+    [SerializeField] float dashTrailHeight = 1f;
+    [SerializeField] float dashTrailDestroyDelay = 1.2f;
+
     private PlanningAction[] playerPlanningList;
     private PlanningAction[] enemyPlanningList;
 
@@ -115,6 +158,9 @@ public class BattleManager : Singleton<BattleManager>
     bool _enemyPlanActive;
     bool _playerAlive = true;
     bool _enemyAlive = true;
+    int _pendingAnimWaits;
+    bool _playerDashMidpointReached;
+    bool _playerDashFinished;
 
     protected override void Awake()
     {
@@ -171,6 +217,7 @@ public class BattleManager : Singleton<BattleManager>
 
         playerCharacter = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
         enemyCharacter = Instantiate(enemyPrefab, Vector3.zero, Quaternion.identity);
+        enemyConfig.ApplyVisualParts(enemyCharacter);
         CacheCharacterAimTargets();
 
         int mapSize = columnsInMap * rowsInMap;
@@ -246,13 +293,7 @@ public class BattleManager : Singleton<BattleManager>
             if (!_playerAlive && !_enemyAlive)
                 break;
 
-            if (_playerPlanActive && _playerAlive)
-                TryExecuteMove(true, playerPlanningList[step]);
-            if (_enemyPlanActive && _enemyAlive)
-                TryExecuteMove(false, enemyPlanningList[step]);
-
-            RefreshCharacterTransforms();
-            yield return new WaitForSeconds(highNoonStepDelay);
+            yield return ExecuteMovesForStep(step);
 
             bool playerHitEnemy = false;
             bool enemyHitPlayer = false;
@@ -300,9 +341,287 @@ public class BattleManager : Singleton<BattleManager>
         _highNoonRoutine = null;
     }
 
-    void TryExecuteMove(bool isPlayer, PlanningAction action)
+    IEnumerator ExecuteMovesForStep(int step)
     {
-        if (action.type != PlanningActionType.MoveLeft && action.type != PlanningActionType.MoveRight)
+        bool playerWillMove = false;
+        bool enemyWillMove = false;
+        PlanningAction playerMove = default;
+        PlanningAction enemyMove = default;
+
+        if (_playerPlanActive && _playerAlive && IsMoveAction(playerPlanningList[step]))
+        {
+            playerWillMove = true;
+            playerMove = playerPlanningList[step];
+        }
+
+        if (_enemyPlanActive && _enemyAlive && IsMoveAction(enemyPlanningList[step]))
+        {
+            enemyWillMove = true;
+            enemyMove = enemyPlanningList[step];
+        }
+
+        if (!playerWillMove && !enemyWillMove)
+            yield break;
+
+        if (enemyWillMove)
+            StartCoroutine(DashMoveEnemySimple(enemyMove));
+
+        if (playerWillMove)
+            yield return DashMovePlayer(playerMove);
+    }
+
+    IEnumerator DashMovePlayer(PlanningAction move)
+    {
+        Vector3 from = GetCharacterWorldPos(true);
+        Vector3 to = GetMoveTargetWorldPos(true, move);
+        ParticleSystem trail = BeginDashTrail(from, to);
+
+        _playerDashMidpointReached = false;
+        _playerDashFinished = false;
+        CharacterDash?.Invoke(true, move.type);
+
+        yield return WaitUntilPlayerDashMidpoint();
+
+        ApplyMove(true, move);
+
+        bool moveDone = playerCharacter == null;
+        LaunchDashTrail(trail, to, dashMoveDuration);
+        if (playerCharacter != null)
+            MoveCharacterVisual(playerCharacter, from, to, () => moveDone = true);
+
+        while (!moveDone || !_playerDashFinished)
+            yield return null;
+    }
+
+    IEnumerator DashMoveEnemySimple(PlanningAction move)
+    {
+        Vector3 from = GetCharacterWorldPos(false);
+        Vector3 to = GetMoveTargetWorldPos(false, move);
+        ParticleSystem trail = BeginDashTrail(from, to);
+
+        CharacterDash?.Invoke(false, move.type);
+
+        float halfDelay = dashMoveDuration;
+        if (halfDelay < 0.05f)
+            halfDelay = 0.05f;
+
+        yield return new WaitForSeconds(halfDelay);
+
+        ApplyMove(false, move);
+        LaunchDashTrail(trail, to, dashMoveDuration);
+
+        bool moveDone = enemyCharacter == null;
+        if (enemyCharacter != null)
+            MoveCharacterVisual(enemyCharacter, from, to, () => moveDone = true);
+
+        while (!moveDone)
+            yield return null;
+    }
+
+    public void NotifyDashMidpoint(bool isPlayerSide)
+    {
+        if (isPlayerSide)
+            _playerDashMidpointReached = true;
+    }
+
+    public void NotifyDashFinished(bool isPlayerSide)
+    {
+        if (isPlayerSide)
+            _playerDashFinished = true;
+    }
+
+    IEnumerator WaitUntilPlayerDashMidpoint()
+    {
+        float elapsed = 0f;
+
+        while (elapsed < animWaitTimeout)
+        {
+            if (_playerDashMidpointReached)
+                yield break;
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        _playerDashMidpointReached = true;
+    }
+
+    void MoveCharacterVisual(GameObject character, Vector3 from, Vector3 to, TweenCallback onComplete)
+    {
+        Transform t = character.transform;
+        t.DOKill();
+        t.position = from;
+
+        Animator animator = character.GetComponentInChildren<Animator>();
+        bool restoreRootMotion = false;
+        if (animator != null && animator.applyRootMotion)
+        {
+            animator.applyRootMotion = false;
+            restoreRootMotion = true;
+        }
+
+        float duration = dashMoveDuration;
+        if (duration <= 0f)
+        {
+            t.position = to;
+            if (restoreRootMotion)
+                animator.applyRootMotion = true;
+            onComplete?.Invoke();
+            return;
+        }
+
+        t.DOMove(to, duration)
+            .SetEase(dashMoveEase)
+            .OnComplete(() =>
+            {
+                if (restoreRootMotion && animator != null)
+                    animator.applyRootMotion = true;
+                onComplete?.Invoke();
+            });
+    }
+
+    Vector3 GetCharacterWorldPos(bool isPlayerSide)
+    {
+        if (isPlayerSide)
+        {
+            if (playerCharacter != null)
+                return playerCharacter.transform.position;
+
+            if (battleMap != null && playerPos >= 0 && playerPos < battleMap.Length)
+                return battleMap[playerPos].position;
+
+            return Vector3.zero;
+        }
+
+        if (enemyCharacter != null)
+            return enemyCharacter.transform.position;
+
+        if (battleMap != null && enemyPos >= 0 && enemyPos < battleMap.Length)
+            return battleMap[enemyPos].position;
+
+        return Vector3.zero;
+    }
+
+    Vector3 GetMoveTargetWorldPos(bool isPlayerSide, PlanningAction action)
+    {
+        int currentPos;
+        if (isPlayerSide)
+            currentPos = playerPos;
+        else
+            currentPos = enemyPos;
+
+        int nextPos = ApplyActionToPos(currentPos, action);
+        if (battleMap == null || nextPos < 0 || nextPos >= battleMap.Length)
+            return GetCharacterWorldPos(isPlayerSide);
+
+        return battleMap[nextPos].position;
+    }
+
+    ParticleSystem BeginDashTrail(Vector3 from, Vector3 to)
+    {
+        if (dashTrailPrefab == null)
+            return null;
+
+        Vector3 start = from + Vector3.up * dashTrailHeight;
+        Vector3 end = to + Vector3.up * dashTrailHeight;
+        Vector3 direction = end - start;
+
+        Quaternion rotation = Quaternion.identity;
+        if (direction.sqrMagnitude > 0.0001f)
+            rotation = Quaternion.LookRotation(direction.normalized);
+
+        ParticleSystem fx = Instantiate(dashTrailPrefab, start, rotation);
+
+        var main = fx.main;
+        main.loop = true;
+        main.stopAction = ParticleSystemStopAction.None;
+
+        fx.Play(true);
+        return fx;
+    }
+
+    void LaunchDashTrail(ParticleSystem fx, Vector3 to, float moveDuration)
+    {
+        if (fx == null)
+            return;
+
+        Vector3 end = to + Vector3.up * dashTrailHeight;
+
+        if (!fx.isPlaying)
+            fx.Play(true);
+
+        if (moveDuration <= 0f)
+        {
+            fx.transform.position = end;
+            FinishDashTrail(fx);
+            return;
+        }
+
+        fx.transform
+            .DOMove(end, moveDuration)
+            .SetEase(dashMoveEase)
+            .OnComplete(() => FinishDashTrail(fx));
+    }
+
+    void FinishDashTrail(ParticleSystem fx)
+    {
+        if (fx == null)
+            return;
+
+        fx.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+
+        float destroyDelay = dashTrailDestroyDelay;
+        if (destroyDelay <= 0f)
+        {
+            var main = fx.main;
+            destroyDelay = main.startLifetime.constantMax + 0.1f;
+        }
+
+        Destroy(fx.gameObject, destroyDelay);
+    }
+
+    public void BeginAnimWait(int count)
+    {
+        if (count < 0)
+            count = 0;
+
+        _pendingAnimWaits = count;
+    }
+
+    public void NotifyAnimFinished()
+    {
+        _pendingAnimWaits--;
+        if (_pendingAnimWaits < 0)
+            _pendingAnimWaits = 0;
+    }
+
+    IEnumerator WaitForPendingAnims()
+    {
+        float elapsed = 0f;
+
+        while (_pendingAnimWaits > 0 && elapsed < animWaitTimeout)
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        _pendingAnimWaits = 0;
+    }
+
+    static bool IsMoveAction(PlanningAction action)
+    {
+        if (action.type == PlanningActionType.MoveLeft)
+            return true;
+
+        if (action.type == PlanningActionType.MoveRight)
+            return true;
+
+        return false;
+    }
+
+    void ApplyMove(bool isPlayer, PlanningAction action)
+    {
+        if (!IsMoveAction(action))
             return;
 
         if (isPlayer)
@@ -399,44 +718,104 @@ public class BattleManager : Singleton<BattleManager>
         if (action.type != PlanningActionType.Shoot)
             return false;
 
-        int target = action.shootTileIndex;
-        if (target < 0 || battleMap == null || target >= battleMap.Length)
+        if (battleMap == null)
             return false;
 
-        bool hitCharacter;
-        if (isPlayer)
-            hitCharacter = _enemyAlive && target == enemyPos;
-        else
-            hitCharacter = _playerAlive && target == playerPos;
+        int[] targets = CollectShootTargets(action);
+        if (targets.Length == 0)
+            return false;
 
-        Vector3 muzzlePos = GetMuzzleWorldPos(isPlayer);
-        Vector3 impactPos = GetImpactWorldPos(hitCharacter, isPlayer, target);
-        Vector3 groundPos = battleMap[target].position + Vector3.up * groundStainHeight;
+        bool anyHit = false;
+        bool announcedShot = false;
 
-        SpawnShotVfx(muzzleFlashPrefab, muzzlePos, shotVfxDestroyDelay);
-        SpawnShotLine(muzzlePos, impactPos);
-        PlayShotAudio();
-        ShotFired?.Invoke();
-        TileShot?.Invoke(target);
-
-        if (hitCharacter)
+        for (int i = 0; i < targets.Length; i++)
         {
-            Quaternion shotRotation = GetShotRotation(muzzlePos, impactPos);
-            SpawnShotVfx(GetCharacterHitPrefab(isPlayer), impactPos, shotRotation, shotVfxDestroyDelay);
-            SpawnShotVfx(characterHitExtraPrefab, impactPos, shotVfxDestroyDelay);
-            PlayCharacterHitAudio();
+            int target = targets[i];
+            if (target < 0 || target >= battleMap.Length)
+                continue;
 
-            bool hitPlayerSide = !isPlayer;
-            CharacterHit?.Invoke(hitPlayerSide);
+            bool hitCharacter;
+            if (isPlayer)
+                hitCharacter = _enemyAlive && target == enemyPos;
+            else
+                hitCharacter = _playerAlive && target == playerPos;
+
+            Vector3 muzzlePos = GetMuzzleWorldPos(isPlayer);
+            Vector3 impactPos = GetImpactWorldPos(hitCharacter, isPlayer, target);
+            Vector3 groundPos = battleMap[target].position + Vector3.up * groundStainHeight;
+
+            SpawnShotVfx(muzzleFlashPrefab, muzzlePos, shotVfxDestroyDelay);
+            SpawnShotLine(muzzlePos, impactPos);
+            PlayShotAudio();
+            ShotFired?.Invoke();
+            TileShot?.Invoke(target);
+
+            if (!announcedShot)
+            {
+                CharacterShot?.Invoke(isPlayer, impactPos);
+                announcedShot = true;
+            }
+
+            if (hitCharacter)
+            {
+                Quaternion shotRotation = GetShotRotation(muzzlePos, impactPos);
+                SpawnShotVfx(GetCharacterHitPrefab(isPlayer), impactPos, shotRotation, shotVfxDestroyDelay);
+                SpawnShotVfx(characterHitExtraPrefab, impactPos, shotVfxDestroyDelay);
+                PlayCharacterHitAudio();
+
+                if (!anyHit)
+                {
+                    bool hitPlayerSide = !isPlayer;
+                    Vector3 hitDirection = impactPos - muzzlePos;
+                    if (hitDirection.sqrMagnitude < 0.0001f)
+                        hitDirection = Vector3.forward;
+                    else
+                        hitDirection = hitDirection.normalized;
+
+                    CharacterHit?.Invoke(hitPlayerSide, hitDirection);
+                    anyHit = true;
+                }
+            }
+            else
+            {
+                SpawnShotVfx(groundStainPrefab, groundPos, groundStainLifetime);
+                SpawnShotVfx(tileImpactPrefab, impactPos, shotVfxDestroyDelay);
+                PlayTileImpactAudio();
+            }
         }
-        else
+
+        return anyHit;
+    }
+
+    static int[] CollectShootTargets(PlanningAction action)
+    {
+        int count = 0;
+        if (action.shootTileIndex >= 0) count++;
+        if (action.shootTileIndex2 >= 0) count++;
+        if (action.shootTileIndex3 >= 0) count++;
+
+        if (count == 0)
+            return System.Array.Empty<int>();
+
+        int[] targets = new int[count];
+        int write = 0;
+
+        if (action.shootTileIndex >= 0)
         {
-            SpawnShotVfx(groundStainPrefab, groundPos, groundStainLifetime);
-            SpawnShotVfx(tileImpactPrefab, impactPos, shotVfxDestroyDelay);
-            PlayTileImpactAudio();
+            targets[write] = action.shootTileIndex;
+            write++;
         }
 
-        return hitCharacter;
+        if (action.shootTileIndex2 >= 0)
+        {
+            targets[write] = action.shootTileIndex2;
+            write++;
+        }
+
+        if (action.shootTileIndex3 >= 0)
+            targets[write] = action.shootTileIndex3;
+
+        return targets;
     }
 
     void SpawnShotLine(Vector3 start, Vector3 end)
@@ -551,6 +930,8 @@ public class BattleManager : Singleton<BattleManager>
             return;
         }
 
+        BattleResolved?.Invoke(outcome);
+
         if (battleMenuUI == null)
             battleMenuUI = FindFirstObjectByType<BattleMenuUI>();
 
@@ -635,11 +1016,7 @@ public class BattleManager : Singleton<BattleManager>
             if (!IsPlayerShootTile(tileIndex))
                 return false;
 
-            planAction = new PlanningAction
-            {
-                type = PlanningActionType.Shoot,
-                shootTileIndex = tileIndex
-            };
+            planAction = PlanningAction.CreateShoot(tileIndex);
             return true;
         }
 
@@ -658,11 +1035,11 @@ public class BattleManager : Singleton<BattleManager>
         if (delta > 0 && curCol >= columnsInMap - 1)
             return false;
 
-        planAction = new PlanningAction
-        {
-            type = delta < 0 ? PlanningActionType.MoveLeft : PlanningActionType.MoveRight,
-            shootTileIndex = -1
-        };
+        if (delta < 0)
+            planAction = PlanningAction.CreateMove(PlanningActionType.MoveLeft);
+        else
+            planAction = PlanningAction.CreateMove(PlanningActionType.MoveRight);
+
         return true;
     }
 
@@ -679,12 +1056,107 @@ public class BattleManager : Singleton<BattleManager>
                 aiType = enemyConfig.GetAiType();
         }
 
+        // Player-row tiles in 1-based UI terms: 5,6,7,8 => indices 4,5,6,7
+        const int tile5 = 4;
+        const int tile6 = 5;
+        const int tile7 = 6;
+        const int tile8 = 7;
+
         int simPos = enemyPos;
-        for (int i = 0; i < maxPlanningActions; i++)
+
+        switch (aiType)
         {
-            enemyPlanningList[i] = CreateEnemyAction(aiType, simPos);
-            simPos = ApplyActionToPos(simPos, enemyPlanningList[i]);
+            case EnemyAiType.forwardShotWander:
+                for (int i = 0; i < maxPlanningActions; i++)
+                {
+                    enemyPlanningList[i] = CreateForwardShotOrWander(simPos);
+                    simPos = ApplyActionToPos(simPos, enemyPlanningList[i]);
+                }
+                break;
+
+            case EnemyAiType.doubleRandomShot:
+                for (int i = 0; i < maxPlanningActions; i++)
+                    enemyPlanningList[i] = CreateDoubleRandomPlayerShot();
+                break;
+
+            case EnemyAiType.openingShotLane8:
+                for (int i = 0; i < maxPlanningActions; i++)
+                {
+                    if (i == 0)
+                        enemyPlanningList[i] = PlanningAction.CreateShoot(tile8);
+                    else
+                        enemyPlanningList[i] = CreateRandomMove(simPos);
+
+                    simPos = ApplyActionToPos(simPos, enemyPlanningList[i]);
+                }
+                break;
+
+            case EnemyAiType.volleyThenMove:
+                for (int i = 0; i < maxPlanningActions; i++)
+                {
+                    if (i == 0)
+                        enemyPlanningList[i] = PlanningAction.CreateShoot(tile5, tile6, tile8);
+                    else if (i == 1)
+                        enemyPlanningList[i] = PlanningAction.CreateShoot(tile5, tile6, tile7);
+                    else
+                        enemyPlanningList[i] = CreateRandomMove(simPos);
+
+                    simPos = ApplyActionToPos(simPos, enemyPlanningList[i]);
+                }
+                break;
+
+            default:
+                for (int i = 0; i < maxPlanningActions; i++)
+                {
+                    enemyPlanningList[i] = CreateEnemyAction(aiType, simPos);
+                    simPos = ApplyActionToPos(simPos, enemyPlanningList[i]);
+                }
+                break;
         }
+    }
+
+    PlanningAction CreateForwardShotOrWander(int simPos)
+    {
+        int col = GetColumn(simPos);
+        if (Random.value < 0.5f)
+            return PlanningAction.CreateShoot(PlayerRowTileFromColumn(col));
+
+        return CreateRandomMove(simPos);
+    }
+
+    PlanningAction CreateDoubleRandomPlayerShot()
+    {
+        int firstCol = Random.Range(0, columnsInMap);
+        int secondCol = Random.Range(0, columnsInMap - 1);
+        if (secondCol >= firstCol)
+            secondCol++;
+
+        return PlanningAction.CreateShoot(
+            PlayerRowTileFromColumn(firstCol),
+            PlayerRowTileFromColumn(secondCol));
+    }
+
+    PlanningAction CreateRandomMove(int simPos)
+    {
+        int col = GetColumn(simPos);
+        bool canLeft = col > 0;
+        bool canRight = col < columnsInMap - 1;
+
+        if (canLeft && canRight)
+        {
+            if (Random.value < 0.5f)
+                return PlanningAction.CreateMove(PlanningActionType.MoveLeft);
+
+            return PlanningAction.CreateMove(PlanningActionType.MoveRight);
+        }
+
+        if (canLeft)
+            return PlanningAction.CreateMove(PlanningActionType.MoveLeft);
+
+        if (canRight)
+            return PlanningAction.CreateMove(PlanningActionType.MoveRight);
+
+        return PlanningAction.CreateShoot(PlayerRowTileFromColumn(col));
     }
 
     PlanningAction CreateEnemyAction(EnemyAiType aiType, int simPos)
@@ -698,62 +1170,27 @@ public class BattleManager : Singleton<BattleManager>
             case EnemyAiType.rightEye:
                 if (Random.value < 0.5f || !canRight)
                 {
-                    return new PlanningAction
-                    {
-                        type = PlanningActionType.Shoot,
-                        shootTileIndex = PlayerRowTileFromColumn(Mathf.Min(col + 1, columnsInMap - 1))
-                    };
+                    return PlanningAction.CreateShoot(
+                        PlayerRowTileFromColumn(Mathf.Min(col + 1, columnsInMap - 1)));
                 }
-                return new PlanningAction
-                {
-                    type = PlanningActionType.MoveRight,
-                    shootTileIndex = -1
-                };
+
+                return PlanningAction.CreateMove(PlanningActionType.MoveRight);
 
             case EnemyAiType.leftLeg:
                 if (Random.value < 0.5f || !canLeft)
-                {
-                    return new PlanningAction
-                    {
-                        type = PlanningActionType.Shoot,
-                        shootTileIndex = PlayerRowTileFromColumn(col)
-                    };
-                }
-                return new PlanningAction
-                {
-                    type = PlanningActionType.MoveLeft,
-                    shootTileIndex = -1
-                };
+                    return PlanningAction.CreateShoot(PlayerRowTileFromColumn(col));
+
+                return PlanningAction.CreateMove(PlanningActionType.MoveLeft);
 
             case EnemyAiType.random:
             default:
                 if (Random.value < 0.5f)
                 {
-                    return new PlanningAction
-                    {
-                        type = PlanningActionType.Shoot,
-                        shootTileIndex = PlayerRowTileFromColumn(Random.Range(0, columnsInMap))
-                    };
+                    return PlanningAction.CreateShoot(
+                        PlayerRowTileFromColumn(Random.Range(0, columnsInMap)));
                 }
 
-                if (canLeft && canRight)
-                {
-                    return new PlanningAction
-                    {
-                        type = Random.value < 0.5f ? PlanningActionType.MoveLeft : PlanningActionType.MoveRight,
-                        shootTileIndex = -1
-                    };
-                }
-                if (canLeft)
-                    return new PlanningAction { type = PlanningActionType.MoveLeft, shootTileIndex = -1 };
-                if (canRight)
-                    return new PlanningAction { type = PlanningActionType.MoveRight, shootTileIndex = -1 };
-
-                return new PlanningAction
-                {
-                    type = PlanningActionType.Shoot,
-                    shootTileIndex = PlayerRowTileFromColumn(col)
-                };
+                return CreateRandomMove(simPos);
         }
     }
 

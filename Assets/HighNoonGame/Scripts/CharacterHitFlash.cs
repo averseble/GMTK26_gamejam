@@ -82,7 +82,7 @@ public class CharacterHitFlash : MonoBehaviour
         _battle = null;
     }
 
-    void OnCharacterHit(bool hitPlayer)
+    void OnCharacterHit(bool hitPlayer, Vector3 hitDirection)
     {
         if (hitPlayer != isPlayer)
             return;

@@ -10,13 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 27c5ffb0d564c8743bafa0dc382d8a4d, type: 3}
-  m_Name: RightEyeJhon
+  m_Name: noMustacheJoe 1
   m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
-  enemyName: RightEyeJohn
+  enemyName: noMustacheJoe
   enemyCharacterPrefab: {fileID: 7659032319657720923, guid: 54c76c9889cea0a4497b3ceeaf5dd11c, type: 3}
-  AiType: 1
+  AiType: 6
   disabledParts:
   - LegInvalid
   - NetGlazChel
-  - mustache
+  - NetGlazaChel
   - KurenieUbiwaet
+  - mustache
