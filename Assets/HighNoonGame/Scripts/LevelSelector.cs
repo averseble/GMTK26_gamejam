@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 [Serializable]
 public class WantedEnemySlot
@@ -8,6 +9,8 @@ public class WantedEnemySlot
     public Transform cameraAnchor;
     public EnemyConfig enemyConfig;
     public GameObject posterRoot;
+    [Tooltip("Optional. If empty, uses posterRoot parent (WantedPaper) to find buttons.")]
+    public GameObject interactionRoot;
 }
 
 public class LevelSelector : MonoBehaviour
@@ -56,10 +59,9 @@ public class LevelSelector : MonoBehaviour
             return;
         }
 
-        ApplyUnlockVisibility();
-
         int preferred = GetInitialFocusIndex();
         _index = preferred;
+        RefreshSlotPresentation();
         FocusCurrent(instant: true);
     }
 
@@ -159,7 +161,7 @@ public class LevelSelector : MonoBehaviour
             GameRoot.Instance.Audio.PlayUiClick();
     }
 
-    void ApplyUnlockVisibility()
+    void RefreshSlotPresentation()
     {
         for (int i = 0; i < slots.Length; i++)
         {
@@ -168,9 +170,70 @@ public class LevelSelector : MonoBehaviour
                 continue;
 
             bool unlocked = IsLevelUnlocked(i);
+            // Only the focused unlocked banner accepts clicks.
+            bool buttonsClickable = unlocked && i == _index && !_confirmLocked;
+
             if (slot.posterRoot != null)
                 slot.posterRoot.SetActive(unlocked);
+
+            SetSlotButtonsInteractable(slot, buttonsClickable);
         }
+    }
+
+    static void SetSlotButtonsInteractable(WantedEnemySlot slot, bool interactable)
+    {
+        GameObject root = ResolveInteractionRoot(slot);
+        if (root == null)
+            return;
+
+        Button[] buttons = root.GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            if (button == null)
+                continue;
+
+            button.interactable = interactable;
+
+            Graphic[] graphics = button.GetComponentsInChildren<Graphic>(true);
+            for (int g = 0; g < graphics.Length; g++)
+            {
+                if (graphics[g] != null)
+                    graphics[g].raycastTarget = interactable;
+            }
+        }
+
+        CanvasGroup canvasGroup = root.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            Canvas canvas = root.GetComponentInChildren<Canvas>(true);
+            if (canvas != null)
+                canvasGroup = canvas.GetComponent<CanvasGroup>();
+
+            if (canvasGroup == null && canvas != null)
+                canvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.interactable = interactable;
+            canvasGroup.blocksRaycasts = interactable;
+        }
+    }
+
+    static GameObject ResolveInteractionRoot(WantedEnemySlot slot)
+    {
+        if (slot.interactionRoot != null)
+            return slot.interactionRoot;
+
+        if (slot.posterRoot == null)
+            return null;
+
+        Transform parent = slot.posterRoot.transform.parent;
+        if (parent != null)
+            return parent.gameObject;
+
+        return slot.posterRoot;
     }
 
     void MoveSelection(int delta)
@@ -180,6 +243,7 @@ public class LevelSelector : MonoBehaviour
             return;
 
         _index = next;
+        RefreshSlotPresentation();
         FocusCurrent(instant: false);
     }
 
@@ -255,6 +319,7 @@ public class LevelSelector : MonoBehaviour
         }
 
         _confirmLocked = true;
+        RefreshSlotPresentation();
         int selectedIndex = _index;
         int pending = 0;
         bool loaded = false;

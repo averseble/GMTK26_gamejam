@@ -25,6 +25,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float shootTurnDuration = 0.12f;
     [SerializeField] Ease shootTurnEase = Ease.OutQuad;
     [SerializeField] float shootAimYawOffset = 90f;
+    [SerializeField] float shootAimLockSeconds = 0.35f;
 
     [Header("Ragdoll")]
     [SerializeField] Transform headTarget;
@@ -37,6 +38,9 @@ public class PlayerController : MonoBehaviour
     bool _isDead;
     Coroutine _dashRoutine;
     Tween _shootTurnTween;
+    bool _lockAimRotation;
+    Quaternion _lockedAimRotation;
+    float _aimLockUntilTime;
     Rigidbody[] _ragdollBodies;
     Collider[] _ragdollColliders;
 
@@ -95,7 +99,22 @@ public class PlayerController : MonoBehaviour
     {
         StopDashRoutine();
         KillShootTurn();
+        _lockAimRotation = false;
         Unsubscribe();
+    }
+
+    void LateUpdate()
+    {
+        if (!_lockAimRotation)
+            return;
+
+        if (Time.time >= _aimLockUntilTime)
+        {
+            _lockAimRotation = false;
+            return;
+        }
+
+        transform.rotation = _lockedAimRotation;
     }
 
     void TrySubscribe()
@@ -368,11 +387,18 @@ public class PlayerController : MonoBehaviour
         if (_isDead)
             return;
 
-        FaceAim(aimWorldPos);
+        FaceAim(aimWorldPos, instant: true);
+        LockAimRotation(shootAimLockSeconds);
         PlayTrigger(ShootHash);
     }
 
-    void FaceAim(Vector3 aimWorldPos)
+    public void FaceToward(Vector3 worldPos)
+    {
+        FaceAim(worldPos, instant: true);
+        _lockAimRotation = false;
+    }
+
+    void FaceAim(Vector3 aimWorldPos, bool instant = false)
     {
         Vector3 toAim = aimWorldPos - transform.position;
         toAim.y = 0f;
@@ -381,21 +407,35 @@ public class PlayerController : MonoBehaviour
             return;
 
         // Mesh is authored ~ -90° yaw under the root, so compensate LookRotation.
+        float yawOffset = shootAimYawOffset;
+        if (!isPlayer)
+            yawOffset += 180f;
+
         Quaternion targetRotation = Quaternion.LookRotation(toAim.normalized, Vector3.up)
-            * Quaternion.Euler(0f, shootAimYawOffset, 0f);
+            * Quaternion.Euler(0f, yawOffset, 0f);
         KillShootTurn();
 
-        float duration = shootTurnDuration;
-        if (duration <= 0f)
+        if (instant || shootTurnDuration <= 0f)
         {
             transform.rotation = targetRotation;
             return;
         }
 
         _shootTurnTween = transform
-            .DORotateQuaternion(targetRotation, duration)
+            .DORotateQuaternion(targetRotation, shootTurnDuration)
             .SetEase(shootTurnEase)
             .SetUpdate(UpdateType.Late);
+    }
+
+    void LockAimRotation(float seconds)
+    {
+        _lockedAimRotation = transform.rotation;
+        _lockAimRotation = true;
+        float lockSeconds = seconds;
+        if (lockSeconds < 0f)
+            lockSeconds = 0f;
+
+        _aimLockUntilTime = Time.time + lockSeconds;
     }
 
     void KillShootTurn()

@@ -99,6 +99,8 @@ public class BattleManager : Singleton<BattleManager>
 
     GameObject playerCharacter;
     GameObject enemyCharacter;
+    Quaternion playerSpawnRotation = Quaternion.identity;
+    Quaternion enemySpawnRotation = Quaternion.identity;
     Transform playerMuzzleTarget;
     Transform playerHeadTarget;
     Transform enemyMuzzleTarget;
@@ -229,8 +231,11 @@ public class BattleManager : Singleton<BattleManager>
             return;
         }
 
-        playerCharacter = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
-        enemyCharacter = Instantiate(enemyPrefab, Vector3.zero, Quaternion.identity);
+        playerSpawnRotation = playerPrefab.transform.rotation;
+        enemySpawnRotation = enemyPrefab.transform.rotation;
+
+        playerCharacter = Instantiate(playerPrefab, Vector3.zero, playerSpawnRotation);
+        enemyCharacter = Instantiate(enemyPrefab, Vector3.zero, enemySpawnRotation);
         enemyConfig.ApplyVisualParts(enemyCharacter);
         CacheCharacterAimTargets();
 
@@ -251,8 +256,24 @@ public class BattleManager : Singleton<BattleManager>
 
         playerCharacter.transform.position = battleMap[playerPos].position;
         enemyCharacter.transform.position = battleMap[enemyPos].position;
+        OrientCombatantsTowardEachOther();
 
         StartBattle();
+    }
+
+    void OrientCombatantsTowardEachOther()
+    {
+        if (playerCharacter == null || enemyCharacter == null)
+            return;
+
+        PlayerController playerController = playerCharacter.GetComponent<PlayerController>();
+        PlayerController enemyController = enemyCharacter.GetComponent<PlayerController>();
+
+        if (playerController != null)
+            playerController.FaceToward(enemyCharacter.transform.position);
+
+        if (enemyController != null)
+            enemyController.FaceToward(playerCharacter.transform.position);
     }
 
     bool SyncBattleMapFromTiles()
@@ -791,21 +812,22 @@ public class BattleManager : Singleton<BattleManager>
             else
                 hitCharacter = _playerAlive && target == playerPos;
 
-            Vector3 muzzlePos = GetMuzzleWorldPos(isPlayer);
             Vector3 impactPos = GetImpactWorldPos(hitCharacter, isPlayer, target);
             Vector3 groundPos = battleMap[target].position + Vector3.up * groundStainHeight;
-
-            SpawnShotVfx(muzzleFlashPrefab, muzzlePos, shotVfxDestroyDelay);
-            SpawnShotLine(muzzlePos, impactPos);
-            PlayShotAudio();
-            ShotFired?.Invoke();
-            TileShot?.Invoke(target);
 
             if (!announcedShot)
             {
                 CharacterShot?.Invoke(isPlayer, impactPos);
                 announcedShot = true;
             }
+
+            Vector3 muzzlePos = GetMuzzleWorldPos(isPlayer);
+
+            SpawnShotVfx(muzzleFlashPrefab, muzzlePos, shotVfxDestroyDelay);
+            SpawnShotLine(muzzlePos, impactPos);
+            PlayShotAudio();
+            ShotFired?.Invoke();
+            TileShot?.Invoke(target);
 
             if (hitCharacter)
             {
@@ -1049,10 +1071,12 @@ public class BattleManager : Singleton<BattleManager>
         WaitingForActionSelection = false;
 
         if (playerCharacter != null && battleMap != null && playerPos >= 0 && playerPos < battleMap.Length)
-            playerCharacter.transform.SetPositionAndRotation(battleMap[playerPos].position, Quaternion.identity);
+            playerCharacter.transform.position = battleMap[playerPos].position;
 
         if (enemyCharacter != null && battleMap != null && enemyPos >= 0 && enemyPos < battleMap.Length)
-            enemyCharacter.transform.SetPositionAndRotation(battleMap[enemyPos].position, Quaternion.identity);
+            enemyCharacter.transform.position = battleMap[enemyPos].position;
+
+        OrientCombatantsTowardEachOther();
 
         if (playerTileSelecter != null)
             playerTileSelecter.ClearCommittedPreviews();
@@ -1300,7 +1324,10 @@ public class BattleManager : Singleton<BattleManager>
 
             case EnemyAiType.doubleRandomShot:
                 for (int i = 0; i < maxPlanningActions; i++)
-                    enemyPlanningList[i] = CreateDoubleRandomPlayerShot();
+                {
+                    enemyPlanningList[i] = CreateDoubleSideShotAction(simPos);
+                    simPos = ApplyActionToPos(simPos, enemyPlanningList[i]);
+                }
                 break;
 
             case EnemyAiType.openingShotLane8:
@@ -1348,16 +1375,39 @@ public class BattleManager : Singleton<BattleManager>
         return CreateRandomMove(simPos);
     }
 
-    PlanningAction CreateDoubleRandomPlayerShot()
+    PlanningAction CreateDoubleSideShotAction(int simPos)
     {
-        int firstCol = Random.Range(0, columnsInMap);
-        int secondCol = Random.Range(0, columnsInMap - 1);
-        if (secondCol >= firstCol)
-            secondCol++;
+        int col = GetColumn(simPos);
+
+        // Stay off edge columns so both side shots always exist.
+        if (col <= 0)
+            return PlanningAction.CreateMove(PlanningActionType.MoveRight);
+
+        if (col >= columnsInMap - 1)
+            return PlanningAction.CreateMove(PlanningActionType.MoveLeft);
+
+        bool canStepLeft = col > 1;
+        bool canStepRight = col < columnsInMap - 2;
+
+        if ((canStepLeft || canStepRight) && Random.value < 0.35f)
+        {
+            if (canStepLeft && canStepRight)
+            {
+                if (Random.value < 0.5f)
+                    return PlanningAction.CreateMove(PlanningActionType.MoveLeft);
+
+                return PlanningAction.CreateMove(PlanningActionType.MoveRight);
+            }
+
+            if (canStepLeft)
+                return PlanningAction.CreateMove(PlanningActionType.MoveLeft);
+
+            return PlanningAction.CreateMove(PlanningActionType.MoveRight);
+        }
 
         return PlanningAction.CreateShoot(
-            PlayerRowTileFromColumn(firstCol),
-            PlayerRowTileFromColumn(secondCol));
+            PlayerRowTileFromColumn(col - 1),
+            PlayerRowTileFromColumn(col + 1));
     }
 
     PlanningAction CreateRandomMove(int simPos)
@@ -1392,13 +1442,23 @@ public class BattleManager : Singleton<BattleManager>
         switch (aiType)
         {
             case EnemyAiType.rightEye:
-                if (Random.value < 0.5f || !canRight)
+            {
+                // On this board, "right of the enemy" is lower column indices.
+                bool canShootEnemyRight = col > 0;
+                if (canShootEnemyRight && (Random.value < 0.5f || !canLeft))
                 {
-                    return PlanningAction.CreateShoot(
-                        PlayerRowTileFromColumn(Mathf.Min(col + 1, columnsInMap - 1)));
+                    int shootCol = Random.Range(0, col);
+                    return PlanningAction.CreateShoot(PlayerRowTileFromColumn(shootCol));
                 }
 
-                return PlanningAction.CreateMove(PlanningActionType.MoveRight);
+                if (canLeft)
+                    return PlanningAction.CreateMove(PlanningActionType.MoveLeft);
+
+                if (canRight)
+                    return PlanningAction.CreateMove(PlanningActionType.MoveRight);
+
+                return PlanningAction.CreateShoot(PlayerRowTileFromColumn(Mathf.Max(col - 1, 0)));
+            }
 
             case EnemyAiType.leftLeg:
                 if (Random.value < 0.5f || !canLeft)

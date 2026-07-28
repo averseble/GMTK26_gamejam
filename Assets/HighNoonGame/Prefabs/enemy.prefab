@@ -137,6 +137,7 @@ MonoBehaviour:
   shootTurnDuration: 0.12
   shootTurnEase: 6
   shootAimYawOffset: 90
+  shootAimLockSeconds: 0.35
   headTarget: {fileID: 8686133951473443013}
   headRigidbody: {fileID: 366765960015607855}
   headHitForce: 28
