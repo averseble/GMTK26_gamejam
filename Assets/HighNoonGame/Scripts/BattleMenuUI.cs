@@ -1,11 +1,14 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class BattleMenuUI : MonoBehaviour
 {
     [SerializeField] GameObject winPanel;
     [SerializeField] GameObject losePanel;
+    [SerializeField] GameObject bothDeadPanel;
 
     [SerializeField] Transform slideRoot;
     [SerializeField] Vector3 bottomLocalPosition;
@@ -14,6 +17,21 @@ public class BattleMenuUI : MonoBehaviour
 
     [SerializeField] Canvas canvas;
     [SerializeField] Camera eventCamera;
+
+    [Header("Ending Thanks")]
+    [SerializeField] float thanksFadeDuration = 1.1f;
+    [SerializeField] float thanksTextFadeDuration = 1f;
+    [SerializeField] float thanksLineDelay = 0.25f;
+    [SerializeField] TMP_FontAsset thanksTitleFont;
+    [SerializeField] TMP_FontAsset thanksGameNameFont;
+    [SerializeField] string thanksMessage = "Thanks for playing";
+    [SerializeField] string thanksGameName = "Be Ready by Noon";
+    [SerializeField] [TextArea(4, 10)] string thanksCredits =
+        "Made for GMTK Game Jam 2026\n\n" +
+        "3D Models — baladune, mihanemoi, pduster, aver14\n" +
+        "Art — mihanemoi\n" +
+        "Audio — bombotska\n" +
+        "Code & Design — aver14";
 
     Coroutine _slideRoutine;
 
@@ -46,12 +64,15 @@ public class BattleMenuUI : MonoBehaviour
 
     public void ShowResult(BattleOutcome outcome)
     {
+        bool draw = outcome == BattleOutcome.Draw;
         bool won = outcome == BattleOutcome.PlayerWin;
 
         if (winPanel != null)
-            winPanel.SetActive(won);
+            winPanel.SetActive(won && !draw);
         if (losePanel != null)
-            losePanel.SetActive(!won);
+            losePanel.SetActive(!won && !draw);
+        if (bothDeadPanel != null)
+            bothDeadPanel.SetActive(draw);
 
         if (slideRoot != null && !slideRoot.gameObject.activeSelf)
             slideRoot.gameObject.SetActive(true);
@@ -80,6 +101,8 @@ public class BattleMenuUI : MonoBehaviour
             winPanel.SetActive(false);
         if (losePanel != null)
             losePanel.SetActive(false);
+        if (bothDeadPanel != null)
+            bothDeadPanel.SetActive(false);
 
         if (slideRoot != null)
             slideRoot.localPosition = bottomLocalPosition;
@@ -116,6 +139,77 @@ public class BattleMenuUI : MonoBehaviour
 
         slideRoot.localPosition = to;
         _slideRoutine = null;
+    }
+
+    public IEnumerator PlayThanksEndingRoutine()
+    {
+        ScreenFader fader = null;
+        if (GameRoot.Instance != null)
+            fader = GameRoot.Instance.Fader;
+
+        if (fader == null)
+            fader = FindFirstObjectByType<ScreenFader>();
+
+        if (fader != null)
+        {
+            fader.PrepareMessageLines(
+                thanksMessage,
+                thanksGameName,
+                thanksCredits,
+                thanksTitleFont,
+                thanksGameNameFont);
+
+            bool screenFadeDone = false;
+            fader.FadeOut(thanksFadeDuration, () => screenFadeDone = true);
+            while (!screenFadeDone)
+                yield return null;
+
+            yield return fader.FadeInLinesSequential(thanksTextFadeDuration, thanksLineDelay);
+        }
+
+        yield return null;
+        while (!WasAnyQuitInputPressed())
+            yield return null;
+
+        QuitGame();
+    }
+
+    static bool WasAnyQuitInputPressed()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null && keyboard.anyKey.wasPressedThisFrame)
+            return true;
+
+        Mouse mouse = Mouse.current;
+        if (mouse != null)
+        {
+            if (mouse.leftButton.wasPressedThisFrame
+                || mouse.rightButton.wasPressedThisFrame
+                || mouse.middleButton.wasPressedThisFrame)
+                return true;
+        }
+
+        Gamepad gamepad = Gamepad.current;
+        if (gamepad != null)
+        {
+            if (gamepad.buttonSouth.wasPressedThisFrame
+                || gamepad.buttonEast.wasPressedThisFrame
+                || gamepad.buttonWest.wasPressedThisFrame
+                || gamepad.buttonNorth.wasPressedThisFrame
+                || gamepad.startButton.wasPressedThisFrame
+                || gamepad.selectButton.wasPressedThisFrame)
+                return true;
+        }
+
+        return false;
+    }
+
+    static void QuitGame()
+    {
+        Application.Quit();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
     }
 
     public void OnRestartClicked()

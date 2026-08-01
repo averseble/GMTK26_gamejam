@@ -16,10 +16,30 @@ public class RunManager : MonoBehaviour
     EnemyConfig _selectedEnemy;
     int _selectedLevelIndex = -1;
     int _levelsCleared;
+    [SerializeField] int totalEnemyCount = 6;
 
     public int LevelsCleared
     {
         get { return _levelsCleared; }
+    }
+
+    public int TotalEnemyCount
+    {
+        get { return totalEnemyCount; }
+    }
+
+    public bool IsFinalEnemySelected
+    {
+        get
+        {
+            if (_selectedLevelIndex < 0)
+                return false;
+
+            if (totalEnemyCount <= 0)
+                return false;
+
+            return _selectedLevelIndex >= totalEnemyCount - 1;
+        }
     }
 
     public int MaxUnlockedIndex

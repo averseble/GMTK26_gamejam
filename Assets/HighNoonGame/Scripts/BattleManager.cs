@@ -1016,11 +1016,19 @@ public class BattleManager : Singleton<BattleManager>
         if (battleMenuUI == null)
             battleMenuUI = FindFirstObjectByType<BattleMenuUI>();
 
-        if (battleMenuUI != null)
+        bool wonFinalEnemy = outcome == BattleOutcome.PlayerWin
+            && GameRoot.Instance != null
+            && GameRoot.Instance.Run != null
+            && GameRoot.Instance.Run.IsFinalEnemySelected;
+
+        if (battleMenuUI != null && !wonFinalEnemy)
             battleMenuUI.ShowResult(outcome);
 
         if (GameRoot.Instance != null && GameRoot.Instance.Run != null)
             GameRoot.Instance.Run.OnBattleFinished(outcome == BattleOutcome.PlayerWin);
+
+        if (wonFinalEnemy && battleMenuUI != null)
+            yield return battleMenuUI.PlayThanksEndingRoutine();
     }
 
     IEnumerator RematchAfterNoHitsRoutine()
@@ -1443,7 +1451,6 @@ public class BattleManager : Singleton<BattleManager>
         {
             case EnemyAiType.rightEye:
             {
-                // On this board, "right of the enemy" is lower column indices.
                 bool canShootEnemyRight = col > 0;
                 if (canShootEnemyRight && (Random.value < 0.5f || !canLeft))
                 {
